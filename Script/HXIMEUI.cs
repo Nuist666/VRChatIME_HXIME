@@ -210,7 +210,7 @@ public class HXIMEUI : UdonSharpBehaviour
         //Set split
         inputBarConstraint.enabled = !splitInputbarKeyboard;
         // Confirm statement
-        statementText.text = "HXIME v 0.9.2\n©HX2 xianglong90";
+        statementText.text = "HXIME v 0.9.4\n©HX2 xianglong90";
         // Load Skin Data
         skinTitle = new string[skinData.Length];
         skinDescription = new string[skinData.Length];

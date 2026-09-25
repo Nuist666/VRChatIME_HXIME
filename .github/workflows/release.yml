@@ -13,6 +13,9 @@ on:
 jobs:
   build:
     runs-on: "ubuntu-latest"
+    # Forks default to a read-only GITHUB_TOKEN, which makes the release step fail.
+    permissions:
+      contents: write
     steps:
       - name: Determine checkout ref
         run: |
@@ -26,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          ref: ${{ inputs.CHECKOUT_REF }}
+          ref: ${{ env.CHECKOUT_REF }}
           path: ./Checkout/${{ github.event.repository.name }}
           
       - name: Check if package.json exists

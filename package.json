@@ -1,16 +1,16 @@
 {
   "name": "xianglong90ii.hxime",
   "displayName": "HXIME",
-  "version": "0.92",
-  "license": "GPL3.0",
+  "version": "0.9.4",
+  "license": "LGPL-3.0",
   "unity": "2022.3",
-  "description": "Chinese Input Keyboard VRChat",
+  "description": "Multilingual Input Keyboard VRChat",
   "author": {
     "name": "xianglong90II",
     "email": "mail@github.com",
     "url": "https://github.com/xianglong90II"
   },
-  "siteUrl": "https://github.com/xianglong90II/VRChatChineseIME_HXIME",
+  "siteUrl": "https://github.com/Nuist666/VRChatIME_HXIME",
   "vpmDependencies": {
     "com.vrchat.worlds": "^3.7.0"
   },

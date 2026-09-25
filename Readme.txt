@@ -1,4 +1,4 @@
-HXIME v0.92 Chinese Input Keyboard VRChat世界用中文输入法+键盘 VRChat用中国語入力+キーボード
+HXIME v0.9.4 Chinese Input Keyboard VRChat世界用中文输入法+键盘 VRChat用中国語入力+キーボード
 
 还在苦恼没有办法在世界里痛快地打中文吗？就用HXIME把你憋了那么多的中文通通打出来吧！
 支持全拼，简拼，混拼，中英切换，简体繁体切换。安装简便，还可以自定义各种皮肤哦。
@@ -101,5 +101,6 @@ Credit:
 繁体词库 Traditional Chinese Dictionary　繫体字辞書データ：RIME朙月拼音 https://github.com/rime/rime-luna-pinyin
 
 Updates:
+v 0.9.4 Added multilingual dictionary input for Japanese and Korean. 新增日语、韩语词库输入。 日本語・韓国語の辞書入力を追加しました。
 v 0.9.2 Fixed the problems that cannot type “ang”,"ing,"ong" syllables. 修复了打不出后鼻音的问题。 後鼻音が入力できない不具合が修正しました。
 v 0.9.1 Fixed the UI collision with players. 修复了UI界面会碰撞玩家。 UIがプレイヤーと衝突する問題を修正しました。
