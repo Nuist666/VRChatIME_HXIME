@@ -1,5 +1,7 @@
 # 多语言词库输入
 
+其他语言：[English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md)
+
 保留中文全拼、简拼、双拼与简繁词库。新增的语言使用独立的「编码 → 词条」词库：例如 `nihongo` → `日本語`、`hangugeo` → `한국어`。可用同样方式增加其他语言。未配置扩展词库时，语言按钮仍只切换中英文。
 
 这是词库驱动的整词输入：支持完整编码和前缀候选，不提供任意罗马字转假名、日语句子分析或韩语二式键盘组字。编码必须与导入的词库一致；也可在预编辑框直接输入词库中定义的假名或韩文编码。
@@ -13,7 +15,7 @@
 手动配置或替换其他词库时：
 
 1. 在场景的 HXIME 实例下新建两个子物体，分别添加 `PinyinDict` 组件。
-2. 在组件检查器将「语言按钮名称」分别设为 `Ja`、`Ko`。通过「浏览文件」和「加载并应用字典」分别导入 `Dicts/japanese_mozc_common.dict.tsv.txt`、`Dicts/korean_nikl_common.dict.tsv.txt`。这两个是较小版本；完整版本、下载来源和转换规则见 [词库说明](Dicts/SOURCES.md)。原有 `*_sample.tsv.txt` 仅为少量测试词条。
+2. 在组件检查器将「语言按钮名称」分别设为 `Ja`、`Ko`。通过「浏览文件」和「加载并应用字典」分别导入 `Dicts/japanese_mozc_common.dict.tsv.txt`、`Dicts/korean_nikl_common.dict.tsv.txt`。这两个是较小版本；完整版本、下载来源和转换规则见[词库说明](Dicts/SOURCES.md)。原有 `*_sample.tsv.txt` 仅为少量测试词条。
 3. 在已有 `PinyinEngine` 的 `Additional Dicts` 数组中，依次放入两个组件。原有 `Dicts` 的前两项仍是简体、繁体中文，不要改变其含义。
 4. 附带的 TMP 字体已连接静态 `NotoSansMultilingualFallback`，覆盖全部现代韩文音节及默认日、韩词库字符。若目标输入框使用项目之外的字体，请将该 fallback 添加到目标字体的 Fallback Font Assets。导入额外词库后应检查新字符是否被字体覆盖。
 5. 编译 UdonSharp，在 Unity Play Mode / VRChat ClientSim 验证，再构建世界。现有语言按钮会循环「中文 → Ja → Ko → 英文 → 中文」，空引用会被跳过。
@@ -44,3 +46,9 @@ UTF-8 文本，每行以真正的 Tab 分隔：`词条<Tab>编码<Tab>非负整�
 - 导入乱序、重复编码、空文件、负数权重与缺失 RIME 结束标记，检查候选和错误信息。
 - 在目标平台验证字体显示与大词库输入延迟。扩展词库逐条扫描，候选缓存大小与候选上限相关；大型词库仍需实际性能测试。
 
+## 相关文档
+
+- 词库来源、处理规则与许可证：[Dicts/SOURCES.md](Dicts/SOURCES.md)
+- 字体来源、烘焙参数与授权：[Fonts/MULTILINGUAL-FONT.md](Fonts/MULTILINGUAL-FONT.md)
+- 新建输入框显示方框的排查：[TMP字体方框解决方案.md](TMP字体方框解决方案.md)
+- 安装与常见问题：[README.md](README.md) ｜ [English](README-EN.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)
