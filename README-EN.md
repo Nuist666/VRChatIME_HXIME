@@ -1,4 +1,4 @@
-### HXIME v0.9 Multilingual Input Keyboard for VRChat
+### HXIME v0.9.5 Multilingual Input Keyboard for VRChat
 
 Other languages: [中文](README.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)
 
@@ -8,12 +8,15 @@ An input method keyboard built for VRChat worlds. It started as a Chinese pinyin
 - **Japanese**: romanized codes such as `nihongo` → `日本語`, `neko` → `猫` / `ねこ`
 - **Korean**: romanized codes such as `hangugeo` → `한국어`, `annyeonghaseyo` → `안녕하세요`
 - **English**: types directly, switchable with the dictionary modes at any time
+- Japanese and Korean can be enabled or disabled individually at the top of `HXIMEUI`; Chinese and English are always enabled
 - Dictionaries are imported in the Unity editor and shipped with the world; no local files are read at runtime
-- Easy to install, custom skins supported; the language button cycles Chinese → Ja → Ko → En
+- Easy to install, custom skins supported; the language button cycles Chinese → JP → Ko → En
 
 `Dicts` ships dictionary files ready to import: a Mozc Japanese dictionary and the National Institute of Korean Language basic Korean dictionary, each in a compact and a full converted version. See [dictionary notes](Dicts/SOURCES.md) for file choices, sources and licenses.
 
 The current `HXIME_Pinyin.prefab` is wired to the compact Japanese and Korean dictionaries, so language switching works out of the box. For older scenes, run `Tools → HXIME → Configure Japanese and Korean Dictionaries`. Full setup, dictionary file format and feature scope are documented in [Multilingual Input](MULTILINGUAL-EN.md), also available in [中文](MULTILINGUAL.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md).
+
+Chinese, Japanese and Korean share sorted indexes and a Top-30 candidate lookup, while Chinese keeps reverse prefix and initials matching. Indexes are built in the editor when a dictionary is imported, when entering Play mode and when the world is built, so a key press only queries the relevant ranges. For old scenes or manually edited dictionaries, rebuild them with `Tools → HXIME → Rebuild All Dictionary Indexes` and save the scene. If a custom script changes dictionary weights at runtime, call the engine's `InvalidateMatchCache()`; codes and entry structure must be changed in the editor and followed by an index rebuild. See [Candidate Lookup Optimization](PERFORMANCE-EN.md) for the reasoning, index structure and verification scope, also available in [中文](PERFORMANCE.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md).
 
 The original author is still learning git, so many thanks to everyone who sends pull requests.
 

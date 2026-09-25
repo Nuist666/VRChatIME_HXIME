@@ -8,7 +8,9 @@
 
 ## Unity에서 설정
 
-현재 `HXIME_Pinyin.prefab` 에는 일본어 30,000개, 한국어 10,000개 간편 사전이 연결되어 있어 그대로 사용하면 「中 → Ja → Ko → En」을 순환합니다.
+현재 `HXIME_Pinyin.prefab` 에는 일본어 30,000개, 한국어 10,000개 간편 사전이 연결되어 있어 그대로 사용하면 「中 → JP → Ko → En」을 순환합니다.
+
+일본어와 한국어는 필요에 따라 켤 수 있습니다: `HXIMEUI` 최상단의 「是否启用日文?」「是否启用韩文?」(일본어 사용 / 한국어 사용) 토글이 해당 언어를 언어 순환에 포함할지 결정합니다. 끄면 언어 버튼이 그 언어를 건너뛰고 해당 사전도 조회하지 않습니다. 중국어와 영어는 항상 사용합니다. 사전 컴포넌트 자체는 삭제되지 않으므로 다시 켜려면 토글만 켜면 됩니다(`Tools → HXIME → Configure Japanese and Korean Dictionaries` 로 다시 연결할 수도 있습니다).
 
 예전 패키지를 가져왔거나 씬 인스턴스가 사전 배열을 덮어쓴 경우, Play 모드를 종료한 뒤 **Tools → HXIME → Configure Japanese and Korean Dictionaries** 를 실행하면 프리팹과 현재 불러온 씬의 연결을 채워 줍니다. 같은 언어의 유효한 사전이 이미 있으면 유지하고 중복 추가하지 않습니다. 프리팹은 저장되며, 씬을 설정한 경우 씬도 저장하세요. Play 모드로 들어가지는 않습니다.
 
@@ -18,15 +20,15 @@
 2. 인스펙터에서 「언어 버튼 이름」을 각각 `Ja`, `Ko` 로 설정합니다. 「파일 찾아보기」와 「사전 불러와 적용」으로 `Dicts/japanese_mozc_common.dict.tsv.txt`, `Dicts/korean_nikl_common.dict.tsv.txt` 를 가져옵니다. 이 두 파일은 간편 버전입니다. 전체 버전, 출처, 변환 규칙은 [사전 안내](Dicts/SOURCES.md)를 참고하세요. 기존 `*_sample.tsv.txt` 는 소량의 테스트 항목일 뿐입니다.
 3. `PinyinEngine` 의 `Additional Dicts` 배열에 두 컴포넌트를 순서대로 넣습니다. `Dicts` 의 앞 두 항목은 간체와 번체 중국어이므로 의미를 바꾸지 마세요.
 4. 함께 제공되는 TMP 글꼴은 정적 `NotoSansMultilingualFallback` 에 연결되어 있어 모든 현대 한글 음절과 기본 일·한 사전의 문자를 포함합니다. 출력 입력란이 프로젝트 외부 글꼴을 사용한다면 그 글꼴의 Fallback Font Assets 에 이 fallback 을 추가하세요. 사전을 추가한 뒤 새 문자가 글꼴에 포함되는지 확인하세요.
-5. UdonSharp 를 컴파일하고 Unity Play Mode / VRChat ClientSim 에서 확인한 뒤 월드를 빌드합니다. 언어 버튼은 「중국어 → Ja → Ko → 영어 → 중국어」를 순환하며 빈 참조는 건너뜁니다.
+5. UdonSharp 를 컴파일하고 Unity Play Mode / VRChat ClientSim 에서 확인한 뒤 월드를 빌드합니다. 언어 버튼은 「중국어 → JP → Ko → 영어 → 중국어」를 순환하며 빈 참조는 건너뜁니다.
 
 사전은 Unity 에디터에서 가져와 월드와 함께 배포됩니다. VRChat 안에서 플레이어의 로컬 파일을 읽지 않습니다. 가져오기는 Undo 를 지원하고, 형식 오류가 있으면 이전 사전을 유지합니다.
 
-`HXIMEUI.Target Inputfield` 는 반드시 별도의 출력란을 가리켜야 하며, `InputBarHandle/InputBar/InputField`(병음 편집란)를 가리키면 안 됩니다. 잘못 연결하면 확정된 텍스트가 병음 후보 재계산을 일으킵니다. 현재 버전은 이런 연결로는 확정을 거부합니다. 메뉴 **Tools → HXIME → Repair Output Field and Verify Chinese Selection** 은 현재 씬의 잘못된 연결을 복구합니다. `Temp` 에 씬을 백업하고, 후보 줄 아래에 별도 `OutputField` 를 만들어 다시 연결한 뒤 씬을 저장합니다. 이미 올바른 출력란은 교체하지 않습니다.
+`HXIMEUI.Target Inputfield` 는 반드시 별도의 출력란을 가리켜야 하며, `InputBarHandle/InputBar/InputField`(병음 편집란)를 가리키면 안 됩니다. 잘못 연결하면 확정된 텍스트가 병음 후보 재계산을 일으킵니다. 현재 버전은 이런 연결로는 확정을 거부합니다. 메뉴 **Tools → HXIME → Repair Output Field and Verify Chinese Selection** 은 현재 씬의 잘못된 연결을 복구합니다. `Temp` 에 씬을 백업하고, 후보 줄 아래에 별도 `OutputField` 를 만들어 다시 연결한 뒤 씬을 저장합니다. 이미 올바른 출력란은 교체하지 않습니다. 이 메뉴는 이어서 `HXIME_Pinyin.prefab` 을 메모리에서 열어 중국어 선택 자체 테스트(`ce s`, `ces`, `ce shi`, `c s`, 여분의 공백, 남은 코드)를 실행하고, 출력란이 편집란에 잘못 연결된 경우 거부되는지 확인합니다. 결과는 `Temp/HXIME-input-repair.txt` 에 기록되며, 프리팹은 수정되지 않고 Play 모드로도 들어가지 않습니다.
 
 메인 키보드와 상단 언어 라벨은 함께 갱신되며 현재 언어만 표시합니다: 중국어 `中`, 일본어 `JP`, 한국어 `Ko`, 영어 `En`. 지우기, 확정, 페이지 넘김, 설정, 입력 안내도 언어에 따라 바뀝니다. 영문 키는 여전히 사전의 로마자 코드를 입력합니다. 함께 제공되는 스킨의 작성자 설명은 원문을 유지합니다.
 
-글꼴 출처와 라이선스는 `Fonts/MULTILINGUAL-FONT.md` 에 있습니다. 메뉴 **Tools → HXIME → Bake Japanese and Korean Font Fallback** 은 부족한 정적 글꼴을 생성하고 fallback 을 연결합니다. **Validate Multilingual Labels and Glyphs** 는 Play 모드에 들어가지 않고 라벨, TMP 메시 글리프, 한국어 `we` 후보를 검증합니다. 글꼴은 패키지에 미리 생성되어 있으므로 일반적인 가져오기에는 다시 굽지 않아도 됩니다.
+글꼴 출처와 라이선스는 `Fonts/MULTILINGUAL-FONT.md` 에 있습니다. 메뉴 **Tools → HXIME → Bake Japanese and Korean Font Fallback** 은 부족한 정적 글꼴을 생성하고 fallback 을 연결합니다. **Validate Multilingual Labels and Glyphs** 는 Play 모드에 들어가지 않고 라벨, TMP 메시 글리프, 한국어 `we` 후보를 검증합니다. 글꼴은 패키지에 미리 생성되어 있으므로 일반적인 가져오기에는 다시 굽지 않아도 됩니다. 이 도구들은 모두 편집 모드에서 실행되고 Play 모드로 들어가지 않으며 결과를 `Temp/` 에 기록합니다: 글꼴 베이크 `Temp/HXIME-font-setup.txt`, 사전 설정 `Temp/HXIME-language-setup.json`, 출력란 복구와 중국어 선택 자체 테스트 `Temp/HXIME-input-repair.txt`, 라벨·글리프 검증 `Temp/HXIME-ui-validation.txt`. 배치나 자동화에서는 빈 `HXIME-font-setup.request`, `HXIME-language-setup.request`, `HXIME-input-repair.request`, `HXIME-ui-validation.request` 를 `Temp/` 에 넣으면 컴파일과 가져오기가 끝난 뒤 해당 도구가 한 번 실행됩니다. 수동 작업은 위 메뉴를 사용하세요.
 
 ## 파일 형식
 
@@ -44,11 +46,12 @@ UTF-8 텍스트이며 한 줄에 실제 탭으로 구분합니다: `단어<Tab>�
 - 일본어로 `NIHONGO` 가 `日本語`, `neko` 가 `猫` 와 `ねこ` 가 된다. 한국어로 `hangugeo` 가 `한국어` 가 된다.
 - 접두사 입력, 일치 없음, 빈 문자열까지 삭제, 후보 페이지 넘김, 언어 전환 후에도 이전 후보나 빈 후보가 확정되지 않는다.
 - 순서가 뒤섞인 항목, 중복 코드, 빈 파일, 음수 가중치, 종료 기호가 없는 RIME 헤더를 가져와 후보와 오류 메시지를 확인한다.
-- 대상 플랫폼에서 글꼴 표시와 큰 사전의 입력 지연을 확인한다. 확장 사전은 항목을 하나씩 검사하며 후보 버퍼는 후보 상한에 따라 달라집니다. 큰 사전은 실제 성능 테스트가 필요합니다.
+- 대상 플랫폼에서 글꼴 표시와 큰 사전의 입력 지연을 확인한다. 후보는 정렬 색인에 대한 이진 탐색으로 일치 구간을 찾고 항목을 하나씩 전부 검사하지 않습니다. 짧은 입력은 여전히 넓은 구간에 일치할 수 있으므로 매우 큰 사전의 프레임 시간은 실제 클라이언트에서 다시 확인해야 합니다. 색인은 상주 메모리를 더 쓰는 대신 검색을 빠르게 합니다. 자세한 내용은 [후보 검색 최적화](PERFORMANCE-KO.md).
 
 ## 관련 문서
 
 - 사전 출처, 변환 규칙, 라이선스: [Dicts/SOURCES.md](Dicts/SOURCES.md)
 - 글꼴 출처, 굽기 설정, 라이선스: [Fonts/MULTILINGUAL-FONT.md](Fonts/MULTILINGUAL-FONT.md)
 - 새 입력란에서 글자가 네모로 보이는 경우: [TMP字体方框解决方案.md](TMP字体方框解决方案.md)
+- 색인과 후보 검색 구현 설명: [PERFORMANCE-KO.md](PERFORMANCE-KO.md) ｜ [中文](PERFORMANCE.md) ｜ [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md)
 - 설치와 자주 묻는 질문: [README.md](README.md) ｜ [English](README-EN.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)

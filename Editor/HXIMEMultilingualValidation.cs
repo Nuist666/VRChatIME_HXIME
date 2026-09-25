@@ -28,6 +28,20 @@ namespace HX2xianglong90.HXIME.EditorTools
             typeof(HXIMEUI).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(ui, value);
         }
         [MenuItem("Tools/HXIME/Validate Multilingual Labels and Glyphs")]
+        public static void VerifyWithConfirmation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play mode before validating labels and glyphs.");
+            if (!EditorUtility.DisplayDialog("HXIME multilingual validation",
+                "This validation runs with Japanese and Korean enabled: it switches the language mode to "
+                + "Japanese/Korean in memory and checks dictionary candidates, language button labels and TMP "
+                + "glyphs. It does not write back to the prefab and does not change the \"Enable Japanese\" / "
+                + "\"Enable Korean\" switches.\n\nContinue?",
+                "Validate", "Cancel")) return;
+            Verify();
+        }
+
+        // Also called by the Temp/HXIME-ui-validation.request step, so it never shows a dialog.
         public static void Verify()
         {
             GameObject prefab = null;

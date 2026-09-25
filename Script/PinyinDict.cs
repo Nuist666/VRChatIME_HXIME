@@ -22,9 +22,50 @@ namespace HX2xianglong90.HXIME
         public string[] pinyins;
         public int[] weights;
         public int[] indices;
+        // Built in the editor. Orders contain source row IDs, preserving tie order.
+        [HideInInspector] public string[] lookupCodes;
+        [HideInInspector] public int[] codeOrder;
+        [HideInInspector] public string[] lookupInitials;
+        [HideInInspector] public int[] initialsOrder;
+        [HideInInspector] public int[] wordIds;
+        [HideInInspector] public int lookupVersion;
     }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR 
+    public static class PinyinLookupBuilder
+    {
+        public static void Build(PinyinDict dictionary)
+        {
+            int count = dictionary.pinyins == null ? 0 : dictionary.pinyins.Length;
+            if (dictionary.entries == null || dictionary.weights == null
+                || dictionary.entries.Length != count || dictionary.weights.Length != count)
+                throw new InvalidOperationException("Dictionary arrays must have equal lengths.");
+            var codes = new string[count];
+            var initials = new string[count];
+            var order = new int[count];
+            var initialOrder = new int[count];
+            var wordIds = new int[count];
+            var words = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < count; i++)
+            {
+                codes[i] = (dictionary.pinyins[i] ?? "").Trim().ToLowerInvariant();
+                initials[i] = string.Concat(codes[i].Split(' ').Where(s => s.Length > 0).Select(s => s.Substring(0, 1)));
+                order[i] = initialOrder[i] = i;
+                string word = dictionary.entries[i] ?? "";
+                if (!words.TryGetValue(word, out int id)) { id = words.Count; words.Add(word, id); }
+                wordIds[i] = id;
+            }
+            Array.Sort(order, (a, b) => { int c = string.CompareOrdinal(codes[a], codes[b]); return c != 0 ? c : a.CompareTo(b); });
+            Array.Sort(initialOrder, (a, b) => { int c = string.CompareOrdinal(initials[a], initials[b]); return c != 0 ? c : a.CompareTo(b); });
+            dictionary.lookupCodes = codes;
+            dictionary.codeOrder = order;
+            dictionary.lookupInitials = initials;
+            dictionary.initialsOrder = initialOrder;
+            dictionary.wordIds = wordIds;
+            dictionary.lookupVersion = Math.Max(1, dictionary.lookupVersion + 1);
+        }
+    }
+
     [CustomEditor(typeof(PinyinDict))]
     public class PinyinDictEditor : Editor
     {
@@ -49,6 +90,14 @@ namespace HX2xianglong90.HXIME
             EditorGUILayout.LabelField($"词条数量: {targetScript.entries?.Length ?? 0}");
             EditorGUILayout.LabelField($"编码数量: {targetScript.pinyins?.Length ?? 0}");
             EditorGUILayout.LabelField($"权重数量: {targetScript.weights?.Length ?? 0}");
+            if (GUILayout.Button("重建查询索引 / Rebuild lookup index"))
+            {
+                Undo.RecordObject(targetScript, "Rebuild HXIME lookup index");
+                PinyinLookupBuilder.Build(targetScript);
+                UdonSharpEditorUtility.CopyProxyToUdon(targetScript);
+                EditorUtility.SetDirty(targetScript);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(targetScript);
+            }
 
             // 文件加载区域
             EditorGUILayout.Space();
@@ -140,6 +189,9 @@ namespace HX2xianglong90.HXIME
                 targetScript.weights = weightsList.ToArray();
                 targetScript.pinyins = pinyinsList.ToArray();
                 targetScript.indices = indicesList.ToArray();
+
+                PinyinLookupBuilder.Build(targetScript);
+                UdonSharpEditorUtility.CopyProxyToUdon(targetScript);
 
                 EditorUtility.SetDirty(targetScript);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(targetScript);

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -39,6 +40,19 @@ namespace HX2xianglong90.HXIME.EditorTools
         }
 
         [MenuItem("Tools/HXIME/Configure Japanese and Korean Dictionaries")]
+        public static void ConfigureWithConfirmation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play mode before configuring dictionaries.");
+            if (!EditorUtility.DisplayDialog("HXIME Japanese / Korean dictionaries",
+                "This enables the Japanese and Korean dictionaries: the prefab (and the scene instances loaded "
+                + "in the editor) get their Japanese/Korean dictionaries created or reconnected, and the "
+                + "\"Enable Japanese\" / \"Enable Korean\" switches on HXIMEUI are turned on.\n\nContinue?",
+                "Enable", "Cancel")) return;
+            Configure();
+        }
+
+        // Also called by the Temp/HXIME-language-setup.request step, so it never shows a dialog.
         public static void Configure()
         {
             var report = new Report();
@@ -55,6 +69,8 @@ namespace HX2xianglong90.HXIME.EditorTools
                 {
                     foreach (PinyinEngine engine in prefab.GetComponentsInChildren<PinyinEngine>(true))
                         ConfigureEngine(engine, ja, ko, false, report);
+                    foreach (HXIMEUI ui in prefab.GetComponentsInChildren<HXIMEUI>(true))
+                        EnableLanguageToggles(ui);
                     PrefabUtility.SaveAsPrefabAsset(prefab, prefabPath);
                 }
                 finally
@@ -76,6 +92,18 @@ namespace HX2xianglong90.HXIME.EditorTools
                     EditorSceneManager.MarkSceneDirty(engine.gameObject.scene);
                 }
                 AssetDatabase.SaveAssetIfDirty(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
+
+                // The confirmation dialog promises to enable both languages, so open the switches
+                // on scene instances as well; connected dictionaries alone would stay disabled.
+                foreach (HXIMEUI ui in UnityEngine.Object.FindObjectsOfType<HXIMEUI>(true))
+                {
+                    if (EditorUtility.IsPersistent(ui) || !ui.gameObject.scene.IsValid()
+                        || !ui.gameObject.scene.isLoaded || EditorSceneManager.IsPreviewScene(ui.gameObject.scene)) continue;
+                    EnableLanguageToggles(ui);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(ui);
+                    EditorUtility.SetDirty(ui);
+                    EditorSceneManager.MarkSceneDirty(ui.gameObject.scene);
+                }
                 report.success = true;
                 Debug.Log("HXIME: Japanese/Korean dictionaries configured. Save the scene to keep instance overrides.");
             }
@@ -86,6 +114,15 @@ namespace HX2xianglong90.HXIME.EditorTools
             }
             Directory.CreateDirectory("Temp");
             File.WriteAllText(ReportPath, JsonUtility.ToJson(report, true));
+        }
+
+        // The confirmation dialog promises to enable both languages, so open the switches as well:
+        // a connected dictionary with the switch off would still be skipped at runtime.
+        private static void EnableLanguageToggles(HXIMEUI ui)
+        {
+            typeof(HXIMEUI).GetField("enableJapanese", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, true);
+            typeof(HXIMEUI).GetField("enableKorean", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, true);
+            UdonSharpEditorUtility.CopyProxyToUdon(ui);
         }
 
         private static string[][] ReadRows(string path)
@@ -109,7 +146,15 @@ namespace HX2xianglong90.HXIME.EditorTools
             if (engine.additionalDicts != null)
                 foreach (PinyinDict existing in engine.additionalDicts)
                     if (existing != null && existing.languageLabel == label && existing.entries != null
-                        && existing.entries.Length > 0) return existing;
+                        && existing.entries.Length > 0)
+                    {
+                        if (undo) Undo.RecordObject(existing, "Rebuild HXIME lookup index");
+                        PinyinLookupBuilder.Build(existing);
+                        UdonSharpEditorUtility.CopyProxyToUdon(existing);
+                        EditorUtility.SetDirty(existing);
+                        if (undo) PrefabUtility.RecordPrefabInstancePropertyModifications(existing);
+                        return existing;
+                    }
             Transform child = engine.transform.Find(name);
             if (child == null)
             {
@@ -133,6 +178,7 @@ namespace HX2xianglong90.HXIME.EditorTools
                 dictionary.weights[i] = int.Parse(rows[i][2]);
                 dictionary.indices[i] = i;
             }
+            PinyinLookupBuilder.Build(dictionary);
             UdonSharpEditorUtility.CopyProxyToUdon(dictionary);
             EditorUtility.SetDirty(dictionary);
             if (undo) PrefabUtility.RecordPrefabInstancePropertyModifications(dictionary);

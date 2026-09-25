@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Linq;
 using System.Text;
@@ -94,15 +94,35 @@ public class PinyinEngine : UdonSharpBehaviour
     [SerializeField] private PinyinDict[] dicts;
     [Header("扩展语言词库（按此顺序加入语言切换）")]
     public PinyinDict[] additionalDicts = new PinyinDict[0];
+    // 由 HXIMEUI 在 Start 时按预制件上的开关写入；中文与英文始终启用。
+    [HideInInspector] public bool enableJapanese = true;
+    [HideInInspector] public bool enableKorean = true;
+
+    // HXIMEUI 通过它设置开关（跨脚本调用方法在 Udon 上最稳妥）。
+    public void SetLanguageEnabled(bool japanese, bool korean)
+    {
+        enableJapanese = japanese;
+        enableKorean = korean;
+    }
 
     public int NextLanguage(int current)
     {
         int count = additionalDicts == null ? 0 : additionalDicts.Length;
         for (int mode = current + 1; mode < count + 2; mode++)
         {
-            if (mode == 1 || additionalDicts[mode - 2] != null) return mode;
+            if (mode == 1) return mode;
+            if (additionalDicts[mode - 2] != null && IsLanguageEnabled(additionalDicts[mode - 2])) return mode;
         }
         return 0;
+    }
+
+    // 只对日语、韩语生效；其他语言标签始终视为启用。
+    private bool IsLanguageEnabled(PinyinDict dictionary)
+    {
+        string label = dictionary.languageLabel;
+        if (label == "Ja" || label == "JP" || label == "ja" || label == "日本語") return enableJapanese;
+        if (label == "Ko" || label == "KO" || label == "ko" || label == "한국어") return enableKorean;
+        return true;
     }
 
     public string LanguageLabel(int mode)
@@ -112,66 +132,17 @@ public class PinyinEngine : UdonSharpBehaviour
         return additionalDicts[mode - 2].languageLabel;
     }
 
-    // Whole-reading lookup for additional languages; never applies Chinese segmentation.
+    // All languages share indexed lookup and Top-K; Chinese enables extra match tiers.
     public string[] MatchLanguage(int mode, string input, int limit)
     {
-        if (limit <= 0 || string.IsNullOrWhiteSpace(input) || additionalDicts == null
-            || mode < 2 || mode - 2 >= additionalDicts.Length) return new string[0];
+        if (additionalDicts == null || mode < 2 || mode - 2 >= additionalDicts.Length)
+            return new string[0];
         PinyinDict dictionary = additionalDicts[mode - 2];
-        if (dictionary == null || dictionary.entries == null || dictionary.pinyins == null
-            || dictionary.weights == null || dictionary.entries.Length != dictionary.pinyins.Length
-            || dictionary.entries.Length != dictionary.weights.Length) return new string[0];
-        string reading = input.Trim().ToLowerInvariant();
-        string[] words = new string[limit];
-        double[] scores = new double[limit];
-        int count = 0;
-        for (int i = 0; i < dictionary.entries.Length; i++)
-        {
-            string code = dictionary.pinyins[i];
-            if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(dictionary.entries[i])) continue;
-            code = code.Trim().ToLowerInvariant();
-            if (!code.StartsWith(reading)) continue;
-            double score = (code == reading ? 1000000d : 0d)
-                + Math.Log10(Math.Max(0, dictionary.weights[i]) + 1d);
-            int duplicate = Array.IndexOf(words, dictionary.entries[i]);
-            if (duplicate >= 0)
-            {
-                if (scores[duplicate] >= score) continue;
-                for (int j = duplicate; j < count - 1; j++)
-                {
-                    words[j] = words[j + 1];
-                    scores[j] = scores[j + 1];
-                }
-                count--;
-                words[count] = null;
-            }
-            int pos = count;
-            while (pos > 0 && scores[pos - 1] < score) pos--;
-            if (pos >= limit) continue;
-            for (int j = Math.Min(count, limit - 1); j > pos; j--)
-            {
-                words[j] = words[j - 1];
-                scores[j] = scores[j - 1];
-            }
-            words[pos] = dictionary.entries[i];
-            scores[pos] = score;
-            count = Math.Min(count + 1, limit);
-        }
-        string[] result = new string[count];
-        Array.Copy(words, result, count);
-        return result;
+        if (dictionary == null || !IsLanguageEnabled(dictionary)) return new string[0];
+        return Lookup(dictionary, input, limit, false, false);
     }
-    private PinyinDict dict_pool;
-    // 数组大小
-    private int max_candidates;
-    private string[] candidate_words; //长度为 maxcandidates
-    private double[] candidate_weights; //长度为 maxcandidates
 
-    //匹配分数数组
-    private float[] match_scores; //长度为 maxcandidates
-    // 创建拼音数组和对应的索引数组
-    private string[] pinyins;
-    private int[] indices;
+    private PinyinDict dict_pool;
     private void Start()
     {
         if (dict_pool == null) SwitchSimp();
@@ -185,9 +156,6 @@ public class PinyinEngine : UdonSharpBehaviour
     private void SelectChineseDictionary(int index)
     {
         dict_pool = dicts != null && index < dicts.Length ? dicts[index] : null;
-        max_candidates = dict_pool == null || dict_pool.entries == null ? 0 : dict_pool.entries.Length;
-        pinyins = dict_pool == null ? null : dict_pool.pinyins;
-        indices = dict_pool == null ? null : dict_pool.indices;
     }
     private string[] Segment(string pinyinString,string mode="mixed"){
         string pinyin_str = pinyinString.ToLower();
@@ -453,226 +421,202 @@ public class PinyinEngine : UdonSharpBehaviour
         return string.Join(" ", result);
     }
 
-private int _match_pinyin(string input_pinyin, string dict_pinyin)
-{
-    // 1. 完全匹配（100分）
-    if (input_pinyin == dict_pinyin)
+    private PinyinDict cachedDictionary;
+    private string cachedInput;
+    private int cachedLimit, cachedVersion;
+    private bool cachedChinese, cachedAccurate;
+    private string[] cachedResult;
+
+    // Reused query workspace. Only the returned result needs a small allocation.
+    private int[] topRows = new int[0];
+    private int[] topEntries = new int[0];
+    private double[] topScores = new double[0];
+    private int topCount, queryLimit;
+    private bool queryChinese, indexed;
+    private string[] codes, initials, entries;
+    private int[] order, initialOrder, entryMap, weights, wordIds;
+
+    public void InvalidateMatchCache() { cachedResult = null; }
+
+    public string[] Match(string inputPinyin, int limit = 20, bool accurateMode = false, bool ulpb = false)
     {
-        return 100;
+        if (dict_pool == null) SwitchSimp();
+        if (string.IsNullOrWhiteSpace(inputPinyin) || limit <= 0) return new string[0];
+        string reading = inputPinyin.Trim().ToLowerInvariant();
+        if (ulpb) reading = MapUlpbToPinyin(reading);
+        return Lookup(dict_pool, reading, limit, true, accurateMode);
     }
 
-    // 2. 开头匹配（50分）
-    if (StartsWithCheck(input_pinyin, dict_pinyin))
+    private string[] Lookup(PinyinDict dictionary, string input, int limit, bool chinese, bool accurate)
     {
-        return 50;
-    }
-
-    // 3. 简拼匹配（30分）
-    if (InitialsMatch(input_pinyin, dict_pinyin))
-    {
-        return 30;
-    }
-
-    // 4. 不匹配
-    return 0;
-}
-
-// 封装函数：检查开头匹配
-private bool StartsWithCheck(string a, string b)
-{
-    return b.StartsWith(a) || a.StartsWith(b);
-}
-
-// 封装函数：简拼匹配检查
-private bool InitialsMatch(string input, string dict)
-{
-    return GetInitials(input) == GetInitials(dict);
-}
-
-// 封装函数：获取拼音首字母
-private string GetInitials(string pinyin)
-{
-    string[] syllables = pinyin.Split(' ');
-    StringBuilder initials = new StringBuilder();
-    
-    foreach (string s in syllables)
-    {
-        if (s.Length > 0)
+        if (dictionary == null || limit <= 0 || string.IsNullOrWhiteSpace(input)) return new string[0];
+        string reading = input.Trim().ToLowerInvariant();
+        if (cachedResult != null && cachedDictionary == dictionary && cachedInput == reading
+            && cachedLimit == limit && cachedChinese == chinese && cachedAccurate == accurate
+            && cachedVersion == dictionary.lookupVersion)
         {
-            initials.Append(s[0]);
+            string[] copy = new string[cachedResult.Length];
+            Array.Copy(cachedResult, copy, copy.Length);
+            return copy;
         }
-    }
-    
-    return initials.ToString();
-}
-
-    private int[] _find_exact_matches(string input_pinyin)
-    {
-
-        // Imported dictionaries need not group identical readings together.
-        int count = 0;
-        for (int i = 0; i < pinyins.Length; i++)
-            if (pinyins[i] == input_pinyin) count++;
-        int[] result = new int[count];
-        int next = 0;
-        for (int i = 0; i < pinyins.Length; i++)
-            if (pinyins[i] == input_pinyin) result[next++] = indices[i];
-        return result;
-    }
-private int[] _find_fuzzy_matches(string inputPinyin, int startIndex, int endIndex)
-{
-    // 预分配足够大的数组空间
-    int[] matches = new int[endIndex - startIndex];
-    int matchCount = 0;
-    
-    for (int i = startIndex; i < endIndex; i++)
-    {
-        if (matchCount >= matches.Length) break;
-        
-        string pinyin = pinyins[i];
-        int idx = indices[i];
-        
-        int score = _match_pinyin(inputPinyin, pinyin);
-        if (score > 0)
+        entries = dictionary.entries;
+        weights = dictionary.weights;
+        codes = dictionary.lookupCodes;
+        order = dictionary.codeOrder;
+        initials = dictionary.lookupInitials;
+        initialOrder = dictionary.initialsOrder;
+        entryMap = dictionary.indices;
+        wordIds = dictionary.wordIds;
+        if (entries == null || weights == null || dictionary.pinyins == null
+            || entries.Length != weights.Length || entries.Length != dictionary.pinyins.Length
+            || (chinese && (entryMap == null || entryMap.Length != entries.Length))) return new string[0];
+        indexed = dictionary.lookupVersion > 0 && codes != null && order != null
+            && codes.Length == entries.Length && order.Length == entries.Length
+            && initials != null && initialOrder != null
+            && initials.Length == entries.Length && initialOrder.Length == entries.Length;
+        if (!indexed) codes = dictionary.pinyins;
+        queryChinese = chinese;
+        queryLimit = Math.Min(limit, entries.Length);
+        topCount = 0;
+        if (topRows.Length < queryLimit)
         {
-            matches[matchCount++] = idx;
+            topRows = new int[queryLimit];
+            topEntries = new int[queryLimit];
+            topScores = new double[queryLimit];
         }
-    }
-    
-    // 返回实际匹配的部分
-    int[] result = new int[matchCount];
-    Array.Copy(matches, result, matchCount);
-    return result;
-}
-
-public string[] Match(string inputPinyin, int limit = 20,bool accurateMode = false, bool ulpb = false)
-{
-    if (dict_pool == null) SwitchSimp();
-    if (limit <= 0 || string.IsNullOrWhiteSpace(inputPinyin) || max_candidates == 0
-        || pinyins == null || indices == null) return new string[0];
-    inputPinyin = inputPinyin.Trim().ToLowerInvariant();
-    Debug.Log($"Match {inputPinyin}");
-    // 初始化候选数组
-    string[] finalCandidates = new string[limit];
-    double[] finalWeights = new double[limit];
-    int finalCount = 0;
-
-    // 临时存储所有候选（假设最多max_candidates个）
-    string[] allCandidates = new string[max_candidates];
-    double[] allWeights = new double[max_candidates];
-    int totalCount = 0;
-
-    if (ulpb)
-    {
-        inputPinyin = MapUlpbToPinyin(inputPinyin);
-    }
-
-    // 阶段1：精确匹配
-    int[] exactMatches = _find_exact_matches(inputPinyin);
-    for (int i = 0; i < exactMatches.Length && totalCount < max_candidates; i++)
-    {
-        int idx = exactMatches[i];
-        allCandidates[totalCount] = dict_pool.entries[idx];
-        allWeights[totalCount] = Math.Log10(Math.Max(0, dict_pool.weights[idx]) + 1d) + 100 * 1000000;
-        totalCount++;
-    }
-    if (!accurateMode){
-    // 阶段2：模糊匹配
-    if (totalCount < limit && inputPinyin.Length > 0)
-    {
-        char firstChar = inputPinyin[0];
-        for (int i = 0; i < pinyins.Length && totalCount < max_candidates; i++)
+        if (indexed)
         {
-            if (pinyins[i].Length > 0 && pinyins[i][0] == firstChar)
+            int start = Bound(reading, false, false, false);
+            int end = Bound(reading, false, true, false);
+            for (int i = start; i < end; i++) Offer(order[i], 100);
+            // Chinese historically skips fuzzy lookup once enough exact rows exist.
+            if ((!chinese || !accurate) && topCount < queryLimit)
             {
-                int score = _match_pinyin(inputPinyin, pinyins[i]);
-                if (score > 0)
+                int prefixEnd = Bound(reading, false, true, true);
+                for (int i = end; i < prefixEnd; i++) Offer(order[i], 50);
+                if (chinese)
                 {
-                    // 检查是否已存在于精确匹配中
-                    bool exists = false;
-                    for (int j = 0; j < exactMatches.Length; j++)
+                    // Reverse prefix: dictionary code is a proper prefix of the input.
+                    for (int length = 1; length < reading.Length; length++)
                     {
-                        if (indices[i] == exactMatches[j])
-                        {
-                            exists = true;
-                            break;
-                        }
+                        string prefix = reading.Substring(0, length);
+                        int first = Bound(prefix, false, false, false);
+                        int last = Bound(prefix, false, true, false);
+                        for (int i = first; i < last; i++) Offer(order[i], 50);
                     }
-                    if (!exists)
+                    string key = GetInitials(reading);
+                    int firstInitial = Bound(key, true, false, false);
+                    int lastInitial = Bound(key, true, true, false);
+                    for (int i = firstInitial; i < lastInitial; i++)
                     {
-                        allCandidates[totalCount] = dict_pool.entries[indices[i]];
-                        allWeights[totalCount] = Math.Log10(Math.Max(0, dict_pool.weights[indices[i]]) + 1d) + score * 1000000;
-                        totalCount++;
+                        int row = initialOrder[i];
+                        string code = codes[row];
+                        // The tiers are disjoint, so no dictionary-sized seen array is needed.
+                        if (code.Length > 0 && code[0] == reading[0]
+                            && !code.StartsWith(reading, StringComparison.Ordinal)
+                            && !reading.StartsWith(code, StringComparison.Ordinal)) Offer(row, 30);
                     }
                 }
-            }
-        }
-    }
-    }
-    // 筛选TopN结果（使用插入排序思想）
-    for (int i = 0; i < totalCount; i++)
-    {
-        // 如果结果数组未满，直接添加
-        if (finalCount < limit)
-        {
-            // 找到插入位置
-            int insertPos = finalCount;
-            while (insertPos > 0 && allWeights[i] > finalWeights[insertPos - 1])
-            {
-                insertPos--;
-            }
-
-            // 移动元素腾出位置
-            for (int j = finalCount; j > insertPos; j--)
-            {
-                if (j < limit)
-                {
-                    finalCandidates[j] = finalCandidates[j - 1];
-                    finalWeights[j] = finalWeights[j - 1];
-                }
-            }
-
-            // 插入新元素
-            if (insertPos < limit)
-            {
-                finalCandidates[insertPos] = allCandidates[i];
-                finalWeights[insertPos] = allWeights[i];
-                finalCount++;
             }
         }
         else
         {
-            // 结果数组已满，只替换比当前最小权重大的元素
-            if (allWeights[i] > finalWeights[limit - 1])
-            {
-                // 找到插入位置
-                int insertPos = limit - 1;
-                while (insertPos > 0 && allWeights[i] > finalWeights[insertPos - 1])
+            // Compatibility for existing scene overrides that have not been baked yet.
+            // Imports and the scene build hook supply the indexed path for players.
+            string key = chinese ? GetInitials(reading) : "";
+            for (int row = 0; row < codes.Length; row++)
+                if (ReadCode(row) == reading) Offer(row, 100);
+            if ((!chinese || !accurate) && topCount < queryLimit)
+                for (int row = 0; row < codes.Length; row++)
                 {
-                    insertPos--;
+                    string code = ReadCode(row);
+                    if (code.Length == 0 || code == reading) continue;
+                    if (code.StartsWith(reading, StringComparison.Ordinal)
+                        || (chinese && reading.StartsWith(code, StringComparison.Ordinal))) Offer(row, 50);
+                    else if (chinese && code[0] == reading[0] && GetInitials(code) == key) Offer(row, 30);
                 }
-
-                // 移动元素腾出位置
-                for (int j = limit - 1; j > insertPos; j--)
-                {
-                    finalCandidates[j] = finalCandidates[j - 1];
-                    finalWeights[j] = finalWeights[j - 1];
-                }
-
-                // 插入新元素
-                finalCandidates[insertPos] = allCandidates[i];
-                finalWeights[insertPos] = allWeights[i];
-            }
         }
+        cachedDictionary = dictionary;
+        cachedInput = reading;
+        cachedLimit = limit;
+        cachedChinese = chinese;
+        cachedAccurate = accurate;
+        cachedVersion = dictionary.lookupVersion;
+        cachedResult = new string[topCount];
+        for (int i = 0; i < topCount; i++) cachedResult[i] = entries[topEntries[i]];
+        string[] result = new string[topCount];
+        Array.Copy(cachedResult, result, topCount);
+        return result;
     }
 
-    // 返回结果（去除可能的空位）
-    string[] result = new string[finalCount];
-    for (int i = 0; i < finalCount; i++)
+    private string ReadCode(int row)
     {
-        result[i] = finalCandidates[i];
+        string code = codes[row] ?? "";
+        return queryChinese ? code : code.Trim().ToLowerInvariant();
     }
-    return result;
-}
+
+    // Upper-prefix bound uses StartsWith instead of an alphabet-specific sentinel.
+    private int Bound(string key, bool useInitials, bool upper, bool prefix)
+    {
+        int[] rows = useInitials ? initialOrder : order;
+        string[] keys = useInitials ? initials : codes;
+        int low = 0, high = rows.Length;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            string value = keys[rows[middle]];
+            int comparison = string.CompareOrdinal(value, key);
+            if (comparison < 0 || (upper && (comparison == 0
+                || (prefix && value.StartsWith(key, StringComparison.Ordinal))))) low = middle + 1;
+            else high = middle;
+        }
+        return low;
+    }
+
+    private void Offer(int row, int tier)
+    {
+        int entry = queryChinese ? entryMap[row] : row;
+        if (entry < 0 || entry >= entries.Length || queryLimit == 0) return;
+        if (!queryChinese && string.IsNullOrEmpty(entries[entry])) return;
+        if (queryChinese && tier != 100)
+            for (int i = 0; i < topCount; i++)
+                if (topEntries[i] == entry && topScores[i] >= 100000000d) return;
+        double score = (queryChinese ? tier * 1000000d : tier == 100 ? 1000000d : 0d)
+            + Math.Log10(Math.Max(0, weights[entry]) + 1d);
+        // JA/KO deduplicate output words; Chinese preserves existing row semantics.
+        if (!queryChinese)
+            for (int i = 0; i < topCount; i++)
+            {
+                bool duplicate = indexed && wordIds != null && wordIds.Length == entries.Length
+                    ? wordIds[topEntries[i]] == wordIds[entry] : entries[topEntries[i]] == entries[entry];
+                if (!duplicate) continue;
+                if (topScores[i] > score || (topScores[i] == score && topRows[i] <= row)) return;
+                for (int j = i; j < topCount - 1; j++)
+                {
+                    topRows[j] = topRows[j + 1]; topEntries[j] = topEntries[j + 1]; topScores[j] = topScores[j + 1];
+                }
+                topCount--;
+                break;
+            }
+        int position = topCount;
+        while (position > 0 && (score > topScores[position - 1]
+            || (score == topScores[position - 1] && row < topRows[position - 1]))) position--;
+        if (position >= queryLimit) return;
+        for (int i = Math.Min(topCount, queryLimit - 1); i > position; i--)
+        {
+            topRows[i] = topRows[i - 1]; topEntries[i] = topEntries[i - 1]; topScores[i] = topScores[i - 1];
+        }
+        topRows[position] = row; topEntries[position] = entry; topScores[position] = score;
+        topCount = Math.Min(topCount + 1, queryLimit);
+    }
+
+    private string GetInitials(string pinyin)
+    {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < pinyin.Length; i++)
+            if (pinyin[i] != ' ' && (i == 0 || pinyin[i - 1] == ' ')) result.Append(pinyin[i]);
+        return result.ToString();
+    }
+
 }
 }

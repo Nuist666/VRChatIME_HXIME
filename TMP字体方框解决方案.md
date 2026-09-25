@@ -86,7 +86,7 @@
 
 `Tools → HXIME → Bake Japanese and Korean Font Fallback`
 
-该工具在字体不存在时生成静态图集，并为 **HXIME/Fonts 内的 TMP 字体**连接后备字体。已有图集会被检查和复用，普通导入无需重新烘焙。
+该工具在字体不存在时生成静态图集，并为 **HXIME/Fonts 内的 TMP 字体**连接后备字体。已有图集会被检查和复用，普通导入无需重新烘焙。运行结果（PASS/FAIL 与字符数、图集数）写入 `Temp/HXIME-font-setup.txt`。
 
 **它不会自动修改你在其他目录创建的字体，也不会替你设置新输入框的 Font Asset。** 新输入框仍需完成第 2 或第 3 节。若报告现有静态字体缺字，不要反复运行期待它自动扩容，应按第 5 节补充字形。
 
@@ -131,7 +131,7 @@ or any potential fallbacks. It was replaced by Unicode character ...
 4. 切换英语 `En`，整个 `InputBarHandle` 会隐藏。若需要英文模式下仍显示输出框，应将目标输入框放在该层级之外，再验证英文输入。
 5. 保存后重新打开场景，再进行目标平台的 VRChat Build & Test，确认图集和字体引用在构建后仍正常。
 
-可额外执行 `Tools → HXIME → Validate Multilingual Labels and Glyphs`。该菜单检查 HXIME 自带字体与测试文字，**通过不代表新建外部输入框已配置正确**，仍需完成上面的直接输入验证。
+可额外执行 `Tools → HXIME → Validate Multilingual Labels and Glyphs`。该菜单检查 HXIME 自带字体与测试文字，**通过不代表新建外部输入框已配置正确**，仍需完成上面的直接输入验证。结果写入 `Temp/HXIME-ui-validation.txt`；它同样只在编辑模式运行、不进入 Play 模式，也不修改预制件。
 
 ## 配置依据
 

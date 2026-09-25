@@ -1,4 +1,4 @@
-### HXIME v0.9 VRChat 월드용 다국어 입력 키보드
+### HXIME v0.9.5 VRChat 월드용 다국어 입력 키보드
 
 다른 언어: [中文](README.md) ｜ [English](README-EN.md) ｜ [日本語](README-JP.md)
 
@@ -8,12 +8,15 @@ VRChat 월드를 위한 입력 키보드입니다. 처음에는 중국어 병음
 - **일본어**: 로마자 코드 입력. 예: `nihongo` → `日本語`, `neko` → `猫`／`ねこ`
 - **한국어**: 로마자 코드 입력. 예: `hangugeo` → `한국어`, `annyeonghaseyo` → `안녕하세요`
 - **영어**: 그대로 입력하며, 언제든 사전 입력과 전환할 수 있습니다
+- 일본어와 한국어는 `HXIMEUI` 최상단에서 개별적으로 켜고 끌 수 있습니다. 중국어와 영어는 항상 사용합니다
 - 사전은 Unity 에디터에서 가져와 월드와 함께 배포되며, 플레이어의 로컬 파일을 읽지 않습니다
-- 설치가 간단하고 스킨을 바꿀 수 있습니다. 언어 버튼은 「中 → Ja → Ko → En」을 순환합니다
+- 설치가 간단하고 스킨을 바꿀 수 있습니다. 언어 버튼은 「中 → JP → Ko → En」을 순환합니다
 
 `Dicts` 에는 바로 가져올 수 있는 Google Mozc 일본어 사전과 국립국어원 한국어기초사전이 있으며, 간편 버전과 전체 변환 버전을 모두 제공합니다. 파일 선택, 출처, 라이선스는 [사전 안내](Dicts/SOURCES.md)를 참고하세요.
 
 현재 `HXIME_Pinyin.prefab` 은 일본어·한국어 간편 사전이 기본으로 연결되어 있어 바로 언어를 전환할 수 있습니다. 예전 씬에서는 `Tools → HXIME → Configure Japanese and Korean Dictionaries` 를 실행하세요. 자세한 설정 방법, 사전 파일 형식, 기능 범위는 [다국어 사전 입력](MULTILINGUAL-KO.md)에 정리했습니다([中文](MULTILINGUAL.md) ｜ [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md)).
+
+중국어·일본어·한국어는 같은 정렬 색인과 Top-30 후보 검색을 공유하고, 중국어는 역방향 접두사와 간음(简拼) 일치도 유지합니다. 색인은 사전 가져오기, Play 모드 진입, 월드 빌드 시 에디터에서 생성되므로 키를 누를 때는 관련 구간만 검색합니다. 예전 씬이나 직접 수정한 사전은 `Tools → HXIME → Rebuild All Dictionary Indexes` 로 다시 만들고 씬을 저장하세요. 사용자 스크립트가 실행 중에 사전 가중치를 바꾸면 엔진의 `InvalidateMatchCache()` 를 호출해야 합니다. 코드와 항목 구조는 에디터에서 수정한 뒤 색인을 다시 만들어야 합니다. 배경, 색인 구조, 검증 범위는 [후보 검색 최적화](PERFORMANCE-KO.md)에 정리했습니다([中文](PERFORMANCE.md) ｜ [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md)).
 
 원작자는 아직 git을 잘 쓰지 못해서, PR을 보내주시는 모든 분께 감사드립니다.
 

@@ -8,7 +8,9 @@
 
 ## Unity での設定
 
-現在の `HXIME_Pinyin.prefab` には日本語 30,000 件と韓国語 10,000 件のコンパクト辞書が接続済みで、そのまま「中 → Ja → Ko → En」を循環できます。
+現在の `HXIME_Pinyin.prefab` には日本語 30,000 件と韓国語 10,000 件のコンパクト辞書が接続済みで、そのまま「中 → JP → Ko → En」を循環できます。
+
+日本語と韓国語は必要に応じて有効にできます：`HXIMEUI` 最上部の「是否启用日文?」「是否启用韩文?」（日本語を有効化 / 韓国語を有効化）スイッチが、その言語を言語循環に含めるかを決めます。オフにすると言語ボタンはその言語を飛ばし、対応する辞書も検索しません。中国語と英語は常に有効です。辞書コンポーネント自体は削除されないため、再度有効にするにはスイッチを入れ直すだけです（`Tools → HXIME → Configure Japanese and Korean Dictionaries` で再接続することもできます）。
 
 古いパッケージを取り込んだ場合や、シーンのインスタンスが辞書配列を上書きしている場合は、Play モードを終了してから **Tools → HXIME → Configure Japanese and Korean Dictionaries** を実行すると、プレハブと現在読み込まれているシーンの接続を補完します。同じ言語の有効な辞書が既にあれば保持し、重複追加はしません。プレハブは保存され、シーン側を設定した場合はシーンも保存してください。Play モードには入りません。
 
@@ -18,15 +20,15 @@
 2. インスペクターで「言語ボタン名」を `Ja`、`Ko` に設定します。「ファイルを参照」と「辞書を読み込んで適用」で、それぞれ `Dicts/japanese_mozc_common.dict.tsv.txt`、`Dicts/korean_nikl_common.dict.tsv.txt` を取り込みます。これはコンパクト版です。完全版、入手元、変換規則は[辞書について](Dicts/SOURCES.md)を参照してください。既存の `*_sample.tsv.txt` は少量のテスト用語句のみです。
 3. `PinyinEngine` の `Additional Dicts` 配列に 2 つのコンポーネントを順に入れます。`Dicts` の先頭 2 つは簡体字・繁体字中国語のままにし、意味を変えないでください。
 4. 同梱の TMP フォントは静的 `NotoSansMultilingualFallback` に接続済みで、現代ハングルの全音節と既定の日韓辞書の文字を覆います。出力先の入力欄がプロジェクト外のフォントを使う場合は、そのフォントの Fallback Font Assets にこの fallback を追加してください。辞書を追加したら、新しい文字がフォントに含まれるか確認してください。
-5. UdonSharp をコンパイルし、Unity Play Mode / VRChat ClientSim で確認してからワールドをビルドします。言語ボタンは「中国語 → Ja → Ko → 英語 → 中国語」を循環し、空の参照は飛ばされます。
+5. UdonSharp をコンパイルし、Unity Play Mode / VRChat ClientSim で確認してからワールドをビルドします。言語ボタンは「中国語 → JP → Ko → 英語 → 中国語」を循環し、空の参照は飛ばされます。
 
 辞書は Unity エディターで取り込み、ワールドと一緒に配布されます。VRChat 内でプレイヤーのローカルファイルを読むことはありません。取り込みは Undo に対応し、形式エラー時は以前の辞書を保持します。
 
-`HXIMEUI.Target Inputfield` は独立した出力欄を指定してください。`InputBarHandle/InputBar/InputField`（ピンイン編集欄）は指定できません。誤って指定すると、確定した文字がピンイン候補の再計算を引き起こします。現在の版はそのような指定での確定を拒否します。メニュー **Tools → HXIME → Repair Output Field and Verify Chinese Selection** を使うと、現在のシーンの誤指定を修復できます。`Temp` にシーンをバックアップし、候補バーの下に独立した `OutputField` を作成して再バインドし、シーンを保存します。すでに正しい出力欄は置き換えません。
+`HXIMEUI.Target Inputfield` は独立した出力欄を指定してください。`InputBarHandle/InputBar/InputField`（ピンイン編集欄）は指定できません。誤って指定すると、確定した文字がピンイン候補の再計算を引き起こします。現在の版はそのような指定での確定を拒否します。メニュー **Tools → HXIME → Repair Output Field and Verify Chinese Selection** を使うと、現在のシーンの誤指定を修復できます。`Temp` にシーンをバックアップし、候補バーの下に独立した `OutputField` を作成して再バインドし、シーンを保存します。すでに正しい出力欄は置き換えません。このメニューは続けて `HXIME_Pinyin.prefab` をメモリ上で開き、中国語の選詞セルフテスト（`ce s`、`ces`、`ce shi`、`c s`、余分な空白、残ったコード）を実行し、出力欄が編集欄に誤って接続されている場合は拒否されることを確認します。結果は `Temp/HXIME-input-repair.txt` に書き出され、プレハブは変更されず、Play モードにも入りません。
 
 メインキーボードと上部の言語ラベルは同期して更新され、現在の言語だけを表示します：中国語 `中`、日本語 `JP`、韓国語 `Ko`、英語 `En`。クリア、確定、ページ送り、設定、入力ヒントも言語に合わせて切り替わります。英字キーは辞書のローマ字コードを入力します。同梱スキンの作者説明は原文のままです。
 
-フォントの出典とライセンスは `Fonts/MULTILINGUAL-FONT.md` にあります。メニュー **Tools → HXIME → Bake Japanese and Korean Font Fallback** は不足する静的フォントを生成して fallback を接続します。**Validate Multilingual Labels and Glyphs** は Play モードに入らずに、ラベル、TMP メッシュの字形、韓国語 `we` の候補を検証します。フォントは同梱済みのため、通常の取り込みで再ベイクは不要です。
+フォントの出典とライセンスは `Fonts/MULTILINGUAL-FONT.md` にあります。メニュー **Tools → HXIME → Bake Japanese and Korean Font Fallback** は不足する静的フォントを生成して fallback を接続します。**Validate Multilingual Labels and Glyphs** は Play モードに入らずに、ラベル、TMP メッシュの字形、韓国語 `we` の候補を検証します。フォントは同梱済みのため、通常の取り込みで再ベイクは不要です。これらのツールはすべて編集モードで動作し、Play モードには入らず、結果を `Temp/` に書き出します：フォントのベイク `Temp/HXIME-font-setup.txt`、辞書設定 `Temp/HXIME-language-setup.json`、出力欄の修復と中国語選詞セルフテスト `Temp/HXIME-input-repair.txt`、ラベルと字形の検証 `Temp/HXIME-ui-validation.txt`。バッチ処理や自動化では、空の `HXIME-font-setup.request`、`HXIME-language-setup.request`、`HXIME-input-repair.request`、`HXIME-ui-validation.request` を `Temp/` に置くと、コンパイルと取り込みの完了後に該当ツールが一度だけ実行されます。手動の場合は上記のメニューを使用してください。
 
 ## ファイル形式
 
@@ -44,11 +46,12 @@ UTF-8 テキストで、1 行につき実際のタブで区切ります：`語�
 - 日本語で `NIHONGO` が `日本語`、`neko` が `猫` と `ねこ` になる。韓国語で `hangugeo` が `한국어` になる。
 - 前方一致、一致なし、空文字までの削除、候補のページ送り、言語切り替えの後に、古い候補や空の候補が確定されない。
 - 順序が乱れた語句、重複コード、空ファイル、負の重み、RIME の終端記号なしを取り込み、候補とエラーメッセージを確認する。
-- 目標プラットフォームでフォント表示と大きな辞書の入力遅延を確認する。拡張辞書は 1 件ずつ走査し、候補バッファは候補上限に依存します。大きな辞書は実際の性能テストが必要です。
+- 目標プラットフォームでフォント表示と大きな辞書の入力遅延を確認する。候補はソート済み索引の二分探索で一致範囲を特定し、1 件ずつの全件走査は行いません。短い入力では依然として広い範囲に一致することがあるため、非常に大きな辞書のフレーム時間は実クライアントで再確認が必要です。索引は常駐メモリの増加と引き換えに検索を高速化します。詳細は[候補検索の最適化](PERFORMANCE-JP.md)。
 
 ## 関連ドキュメント
 
 - 辞書の出典・変換規則・ライセンス：[Dicts/SOURCES.md](Dicts/SOURCES.md)
 - フォントの出典・ベイク設定・ライセンス：[Fonts/MULTILINGUAL-FONT.md](Fonts/MULTILINGUAL-FONT.md)
 - 新しい入力欄で文字が□になる場合：[TMP字体方框解决方案.md](TMP字体方框解决方案.md)
+- 索引と候補検索の実装説明：[PERFORMANCE-JP.md](PERFORMANCE-JP.md) ｜ [中文](PERFORMANCE.md) ｜ [English](PERFORMANCE-EN.md) ｜ [한국어](PERFORMANCE-KO.md)
 - インストールとよくある質問：[README.md](README.md) ｜ [English](README-EN.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)

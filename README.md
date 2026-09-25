@@ -1,4 +1,4 @@
-### HXIME v0.9 多语言输入法+键盘 VRChat 世界用多语言输入法 Multilingual Input Keyboard
+### HXIME v0.9.5 多语言输入法+键盘 VRChat 世界用多语言输入法 Multilingual Input Keyboard
 
 其他语言：[English](README-EN.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)
 
@@ -8,12 +8,15 @@
 - **日语**：罗马字编码输入，如 `nihongo` → `日本語`、`neko` → `猫`／`ねこ`
 - **韩语**：罗马字编码输入，如 `hangugeo` → `한국어`、`annyeonghaseyo` → `안녕하세요`
 - **英语**：直接上屏，可随时与词库输入切换
+- 日语、韩语可在 `HXIMEUI` 最上面分别启用或停用，中文与英文始终启用
 - 词库在 Unity 编辑器导入并随世界发布，不读取玩家本地文件
-- 安装简便，支持自定义皮肤；语言按钮循环「中 → Ja → Ko → En」
+- 安装简便，支持自定义皮肤；语言按钮循环「中 → JP → Ko → En」
 
 `Dicts` 中已提供可直接导入的 Mozc 日语词库与国立国语院基础韩语词库，包含精简版本和完整转换版本。文件选择、数据来源及许可证见[词库说明](Dicts/SOURCES.md)。
 
 新版 `HXIME_Pinyin.prefab` 默认连接日韩精简词库，开箱即可切换语言；旧场景可用菜单 `Tools → HXIME → Configure Japanese and Korean Dictionaries` 补齐连接。完整配置方法、词库文件格式与功能范围见[多语言使用说明](MULTILINGUAL.md)，各语言版本见 [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md)。
+
+中、日、韩共用排序索引与 Top-30 候选查询，中文另外保留反向前缀和简拼匹配。词库导入、进入 Play 模式和构建世界时会在编辑器预建索引，玩家按键时只查询相关区间。旧场景或手动修改的词库也可用 `Tools → HXIME → Rebuild All Dictionary Indexes` 重建，并保存场景。若自定义脚本在运行时修改词库权重，需调用引擎的 `InvalidateMatchCache()`；编码和词条结构应在编辑器修改后重建索引。改动原因、索引结构与验证范围见[候选查询优化说明](PERFORMANCE.md)，另有 [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md)。
 
 作者还不会用git，所以非常感谢帮忙提交PR的大家。
 

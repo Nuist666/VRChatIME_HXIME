@@ -11,6 +11,10 @@ using VRC.Udon;
 namespace HX2xianglong90.HXIME{
 public class HXIMEUI : UdonSharpBehaviour
 {
+    [Header("是否启用日文?")]
+    [SerializeField] private bool enableJapanese = true;
+    [Header("是否启用韩文?")]
+    [SerializeField] private bool enableKorean = true;
     [Header("是否默认中文输入?")]
     [SerializeField] private bool defaultZhCN = true;
     [Header("是否默认简体字?")]
@@ -103,6 +107,11 @@ public class HXIMEUI : UdonSharpBehaviour
     {
         //set lang mode
         if(defaultZhCN){langMode = 1;}else{langMode=0;};
+        // 中文与英文始终启用；日文、韩文按预制件最上面的开关交给引擎。
+        if (engine != null)
+        {
+            engine.SetLanguageEnabled(enableJapanese, enableKorean);
+        }
         //set simp or trad
         if(defaultSimplified){isSimplified=true;}else{isSimplified=false;};
         ulpb = defaultUlpb;
@@ -210,7 +219,7 @@ public class HXIMEUI : UdonSharpBehaviour
         //Set split
         inputBarConstraint.enabled = !splitInputbarKeyboard;
         // Confirm statement
-        statementText.text = "HXIME v 0.9.4\n©HX2 xianglong90";
+        statementText.text = "HXIME v 0.9.5\n©HX2 xianglong90";
         // Load Skin Data
         skinTitle = new string[skinData.Length];
         skinDescription = new string[skinData.Length];
