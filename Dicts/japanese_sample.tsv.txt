@@ -1,0 +1,14 @@
+# Minimal examples authored for HXIME. word<TAB>romaji<TAB>weight
+こんにちは	konnichiwa	100
+ありがとう	arigatou	100
+日本語	nihongo	100
+日本	nippon	80
+日本	nihon	100
+私	watashi	100
+はい	hai	100
+いいえ	iie	100
+東京	toukyou	100
+今日	kyou	100
+学校	gakkou	100
+猫	neko	100
+ねこ	neko	50

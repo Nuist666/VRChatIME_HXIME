@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Linq;
 using TMPro;
@@ -24,7 +24,8 @@ public class HXIMEUI : UdonSharpBehaviour
     
     [Header("目标输入框")]
     public TMP_InputField targetInputfield;
-    private int langMode = 1; // 0为英文, 1为中文
+    private bool targetWarningShown;
+    private int langMode = 1; // 0: English, 1: Chinese, 2+: additionalDicts
     private bool isSimplified = true; //是简体字
     private bool ulpb = true;
     private bool capsed = false;
@@ -34,7 +35,7 @@ public class HXIMEUI : UdonSharpBehaviour
     // pinyin initials
     private const string pinyinInitials = "bpmfdtnlgkhjqxzcsry";
     // word candidates
-    private string[] wordCandidates;
+    private string[] wordCandidates = new string[0];
     private int pageResultNum = 5;
     private int currentPageIndex = 0;
     private int maxPageIndex =0;
@@ -60,6 +61,7 @@ public class HXIMEUI : UdonSharpBehaviour
     private TMP_Text switchBarUlpbButton;
     private GameObject settingsPanel;
     private Toggle accurateModeToggle;
+    private Color settingsTextColor = Color.white;
     private Image toggleBackgroundImage;
     private Image toggleCheckmarkImage;
     private Image keyboardToggleImage;
@@ -121,7 +123,10 @@ public class HXIMEUI : UdonSharpBehaviour
         //init switchbar buttons
         switchBarLangSwitchButton = (TMP_Text)switchBarHandle.transform.Find("SwitchBar/LangState").GetComponent(typeof(TMP_Text));
         switchBarSimpTradButton = (TMP_Text)switchBarHandle.transform.Find("SwitchBar/SimpTradSwitch").GetComponent(typeof(TMP_Text));
-        switchBarUlpbButton = (TMP_Text)switchBarHandle.transform.Find("SwitchBar/UlpbSwitch").GetComponent(typeof(TMP_Text));
+        // Older prefabs have no full/double-pinyin button. Keep their layout usable.
+        Transform ulpbSwitch = switchBarHandle.transform.Find("SwitchBar/UlpbSwitch");
+        if (ulpbSwitch != null)
+            switchBarUlpbButton = (TMP_Text)ulpbSwitch.GetComponent(typeof(TMP_Text));
         settingsPanel = switchBarHandle.transform.Find("SettingsPanel").gameObject;
         statementText = (TMP_Text)switchBarHandle.transform.Find("SettingsPanel/Statement").GetComponent(typeof(TMP_Text));
         accurateModeToggle = (Toggle)switchBarHandle.transform.Find("SettingsPanel/Buttons/AccurateMode").GetComponent(typeof(Toggle));
@@ -254,12 +259,24 @@ public class HXIMEUI : UdonSharpBehaviour
         return new Color(r, g, b, a);
     }
     // 各个按键的处理中介
+    private bool HasTargetInputField()
+    {
+        if (targetInputfield != null && targetInputfield != IMEInputField) return true;
+        if (!targetWarningShown)
+        {
+            Debug.LogWarning("HXIME: Target Inputfield 必须绑定独立的目标 TMP_InputField，不能绑定输入法自身的拼音预编辑框；当前输入尚未提交。");
+            targetWarningShown = true;
+        }
+        return false;
+    }
     private void AlphabetButtonPressedAgent(int buttonIndex){
         string inputText = alphabetButtonTexts[buttonIndex].text;
         if(langMode==0){ //英文
+            if (!HasTargetInputField()) return;
             targetInputfield.text = targetInputfield.text + inputText;
+            return;
         }
-        else if (ulpb)
+        else if (langMode == 1 && ulpb)
         {
             if (IMEInputField.text.Length >1 && IMEInputField.text[IMEInputField.text.Length-2] != ' ' && IMEInputField.text[IMEInputField.text.Length-1] != ' ')
             {
@@ -289,8 +306,9 @@ public class HXIMEUI : UdonSharpBehaviour
         IMEInputField.text = IMEInputField.text+inputText;
     }
     private void MarkButtonPressedAgent(int buttonIndex){
-        if(langMode==1){ //中文
+        if(langMode!=0){ // Composition
             if(IMEInputField.text==""){
+                if (!HasTargetInputField()) return;
                 targetInputfield.text = targetInputfield.text+markButtonTexts[buttonIndex].text;
             }
             else{
@@ -305,21 +323,33 @@ public class HXIMEUI : UdonSharpBehaviour
                 }
             }
         }else if(langMode==0){ //英文
+            if (!HasTargetInputField()) return;
             targetInputfield.text = targetInputfield.text+markButtonTexts[buttonIndex].text;
         }
     }
     private void WordCandidatePressedAgent(int buttonIndex){
-        targetInputfield.text = targetInputfield.text+wordCandidateButtonTexts[buttonIndex].text;
-        var selectCount = wordCandidateButtonTexts[buttonIndex].text.Length;
-        var editText = IMEInputField.text.Split(' ');
-        if (selectCount >= editText.Length)
+        int candidateIndex = currentPageIndex * pageResultNum + buttonIndex;
+        if (buttonIndex < 0 || buttonIndex >= pageResultNum || candidateIndex >= wordCandidates.Length) return;
+        if (!HasTargetInputField()) return;
+        // Both fields can invoke onValueChanged synchronously. Capture the selected
+        // word and remaining composition before either callback refreshes the UI.
+        string selectedWord = wordCandidates[candidateIndex];
+        string remaining = "";
+        if (langMode == 1)
         {
-            IMEInputField.text = "";
-            return;
+            string[] syllables = IMEInputField.text.Split(' ');
+            int consumed = 0;
+            for (int i = 0; i < syllables.Length; i++)
+            {
+                if (syllables[i].Length == 0) continue;
+                if (consumed >= selectedWord.Length)
+                    remaining += (remaining.Length == 0 ? "" : " ") + syllables[i];
+                consumed++;
+            }
         }
-        var newText = new string[editText.Length - selectCount];
-        Array.Copy(editText, selectCount, newText, 0, newText.Length);
-        IMEInputField.text = string.Join(" ", newText);
+        IMEInputField.text = remaining;
+        targetInputfield.text += selectedWord;
+        GetWordCandidates();
     }
     // 功能键
     public void ShiftPressed(){
@@ -339,7 +369,7 @@ public class HXIMEUI : UdonSharpBehaviour
         }
         // mark buttons
         if (shifted){
-            if(langMode == 0){ // English
+            if(langMode != 1){ // Latin punctuation
                 for(int i = 0;i<markButtonTexts.Length;i++){
                     markButtonTexts[i].text = markButtonEnShift[i].ToString();
                 }
@@ -349,7 +379,7 @@ public class HXIMEUI : UdonSharpBehaviour
                 }
             }
         }else{ // not shifted
-            if(langMode == 0){ // English
+            if(langMode != 1){ // Latin punctuation
                 for(int i = 0;i<markButtonTexts.Length;i++){
                     markButtonTexts[i].text = markButtonEn[i].ToString();
                 }
@@ -378,17 +408,19 @@ public class HXIMEUI : UdonSharpBehaviour
     }
     public void BackSpacePressed(){
         if(langMode==0){ //英文
+            if (!HasTargetInputField()) return;
             if(targetInputfield.text.Length!=0){
                 targetInputfield.text = targetInputfield.text.Remove(targetInputfield.text.Length-1);
             }
-        }else if(langMode==1){ //中文
+        }else if(langMode!=0){ // Composition
             if(IMEInputField.text.Length!=0){
                 IMEInputField.text = IMEInputField.text.Remove(IMEInputField.text.Length-1);
-                if (IMEInputField.text.Length > 0 && IMEInputField.text[IMEInputField.text.Length - 1] == ' ')
+                if (langMode == 1 && IMEInputField.text.Length > 0 && IMEInputField.text[IMEInputField.text.Length - 1] == ' ')
                 {
                     IMEInputField.text = IMEInputField.text.Remove(IMEInputField.text.Length - 1);
                 }
             }else{
+                if (!HasTargetInputField()) return;
                 if(targetInputfield.text.Length!=0){
                     targetInputfield.text = targetInputfield.text.Remove(targetInputfield.text.Length-1);
                 }
@@ -397,30 +429,38 @@ public class HXIMEUI : UdonSharpBehaviour
     }
     public void TabPressed(){
         if(langMode ==0){
+            if (!HasTargetInputField()) return;
             targetInputfield.text = targetInputfield.text + "\t";
-        }else if(langMode==1)
+        }else if(langMode!=0)
         {
             IMEInputField.text = "";
         }
     }
     public void SpacePressed(){
         if(langMode==0 || IMEInputField.text==""){ //英文，或者没有预编辑文本
+            if (!HasTargetInputField()) return;
             targetInputfield.text += " ";
             return;
         }
-        WordCandidatePressedAgent(0);
+        if (wordCandidates.Length == 0) EnterPressed();
+        else WordCandidatePressedAgent(0);
     }
     //获取候选
     public void GetWordCandidates(){
-        if(langMode == 1){// 中文 —> 开始拼音
-            wordCandidates = engine.Match(IMEInputField.text,candidateLimits,accurateMode, ulpb);
+        if (IMEInputField == null || wordCandidateButtons == null) return;
+        if(langMode != 0){
+            wordCandidates = langMode == 1
+                ? engine.Match(IMEInputField.text,candidateLimits,accurateMode, ulpb)
+                : engine.MatchLanguage(langMode, IMEInputField.text, candidateLimits);
             currentPageIndex = 0;
             maxPageIndex = wordCandidates.Length/pageResultNum;
             if(wordCandidates.Length%pageResultNum==0){
                 maxPageIndex = wordCandidates.Length/pageResultNum-1;
             }
-            RefreshWordCandidates();
         }
+        else { wordCandidates = new string[0]; currentPageIndex = 0; maxPageIndex = 0; }
+        maxPageIndex = Math.Max(0, maxPageIndex);
+        RefreshWordCandidates();
     }
     private void RefreshWordCandidates(){
         foreach(Button go in wordCandidateButtons){
@@ -446,13 +486,14 @@ public class HXIMEUI : UdonSharpBehaviour
     }
     //其他功能键
     public void EnterPressed(){
+        if (!HasTargetInputField()) return;
         Debug.Log("回车！");
         if (langMode==0 || IMEInputField.text==""){
             targetInputfield.text=targetInputfield.text+"\n";
             return;
         }
         // 有预编辑文本，预编辑文本直接上屏
-        targetInputfield.text += IMEInputField.text.Replace(" ", "");
+        targetInputfield.text += langMode == 1 ? IMEInputField.text.Replace(" ", "") : IMEInputField.text;
         IMEInputField.text = "";
     }
     public void PrevPressed(){
@@ -472,30 +513,36 @@ public class HXIMEUI : UdonSharpBehaviour
     //工具栏
     //切换中英文
     public void LangChangePressed(){
-        if(langMode <1){
-            langMode = langMode + 1;
-        }else{
-            langMode =0;
+        // Commit the old composition before changing its interpretation.
+        if (IMEInputField.text.Length > 0)
+        {
+            if (!HasTargetInputField()) return;
+            targetInputfield.text += langMode == 1 ? IMEInputField.text.Replace(" ", "") : IMEInputField.text;
+            IMEInputField.text = "";
         }
+        langMode = engine.NextLanguage(langMode);
         RefreshLangSwitch();
     }
     private void RefreshLangSwitch(){
         
         if(langMode ==0){
             switchBarLangSwitchButton.text = "En";
-            targetInputfield.text += IMEInputField.text.Replace(" ", "");
             IMEInputField.text = "";
-            inputBarHandle.SetActive(false);
-            specialButtonTexts[1].text = "Tab";
-        }else if(langMode == 1){
-            switchBarLangSwitchButton.text = "中";
+        }else{
+            switchBarLangSwitchButton.text = engine.LanguageLabel(langMode);
             IMEInputField.text = "";
-            inputBarHandle.SetActive(keyboardHandle.activeSelf);
-            specialButtonTexts[1].text = "重输";
         }
+        RefreshInputBarVisibility();
+        RefreshKeyboardLabels();
+        // Exact pinyin matching only applies to the Chinese engine.
+        accurateModeToggle.interactable = langMode == 1;
+        RefreshSettingsTextColors();
+        switchBarSimpTradButton.gameObject.SetActive(langMode == 1);
+        if (switchBarUlpbButton != null) switchBarUlpbButton.gameObject.SetActive(langMode == 1);
+        GetWordCandidates();
         // mark buttons
         if (shifted){
-            if(langMode == 0){ // English
+            if(langMode != 1){ // Latin punctuation
                 for(int i = 0;i<markButtonTexts.Length;i++){
                     markButtonTexts[i].text = markButtonEnShift[i].ToString();
                 }
@@ -505,7 +552,7 @@ public class HXIMEUI : UdonSharpBehaviour
                 }
             }
         }else{ // not shifted
-            if(langMode == 0){ // English
+            if(langMode != 1){ // Latin punctuation
                 for(int i = 0;i<markButtonTexts.Length;i++){
                     markButtonTexts[i].text = markButtonEn[i].ToString();
                 }
@@ -516,8 +563,37 @@ public class HXIMEUI : UdonSharpBehaviour
             }
         }
     }
+    // Identify the dictionary by its label, not its position in additionalDicts.
+    private void RefreshKeyboardLabels(){
+        string label = engine.LanguageLabel(langMode);
+        bool ja = label == "Ja" || label == "JP" || label == "ja" || label == "日本語";
+        bool ko = label == "Ko" || label == "KO" || label == "ko" || label == "한국어";
+        bool zh = langMode == 1;
+        if (ja) switchBarLangSwitchButton.text = "JP";
+        for (int i = 0; i < specialButtons.Length; i++){
+            string key = specialButtons[i].name;
+            TMP_Text text = specialButtonTexts[i];
+            if (key == "LangChange") text.text = ja ? "JP" : ko ? "Ko" : zh ? "中" : label;
+            else if (key == "Tab") text.text = ja ? "クリア" : ko ? "지우기" : zh ? "重输" : "Tab";
+            else if (key == "EnterButton") text.text = ja ? "Enter\n確定" : ko ? "Enter\n입력" : zh ? "Enter\n回车" : "Enter";
+            else if (key == "PrevPage") text.text = ja ? "前へ" : ko ? "이전" : zh ? "前页" : "Prev";
+            else if (key == "NextPage") text.text = ja ? "次へ" : ko ? "다음" : zh ? "后页" : "Next";
+        }
+        IMEInputFieldTexts[0].text = ja ? "このキーボードで入力" : ko ? "이 키보드로 입력하세요" : zh ? "请使用本输入法键盘输入" : "Type with this keyboard";
+        skinCenterLabel.text = ja ? "スキン" : ko ? "스킨" : zh ? "皮肤中心" : "Skins";
+        for (int i = 0; i < settingPanelButtonsText.Length; i++){
+            TMP_Text text = settingPanelButtonsText[i];
+            string key = settingsPanel.transform.Find("Buttons").GetChild(i).name;
+            if (key == "AccurateMode") text.text = ja ? "完全一致" : ko ? "정확 일치" : zh ? "强制全拼" : "Exact";
+            else if (key == "Skin") text.text = ja ? "スキン" : ko ? "스킨" : zh ? "皮肤" : "Skin";
+            else if (key == "SplitMode") text.text = ja ? "分離" : ko ? "분리" : zh ? "拆合" : "Split";
+            else if (key == "Credit") text.text = ja ? "情報" : ko ? "정보" : zh ? "信息" : "Info";
+            else if (key == "KeyBoardPosReset") text.text = ja ? "リセット" : ko ? "초기화" : zh ? "复位" : "Reset";
+        }
+    }
     //切换简体繁体
 	public void SwitchSimpTrad(){
+        if (langMode != 1) return;
         isSimplified=!isSimplified;
         RefreshSimpTrad();
     }
@@ -534,24 +610,22 @@ public class HXIMEUI : UdonSharpBehaviour
     }
     //切换全拼双拼
 	public void SwitchUlpb(){
+        if (langMode != 1) return;
         ulpb = !ulpb;
         RefreshUlpb();
     }
 	public void RefreshUlpb(){
-        if(ulpb){
-            switchBarUlpbButton.text="双";
-            GetWordCandidates();
-        }else{
-            switchBarUlpbButton.text="全";
-            GetWordCandidates();
-        }
+        if (switchBarUlpbButton != null) switchBarUlpbButton.text = ulpb ? "双" : "全";
+        GetWordCandidates();
     }
     //切换键盘
     public void ToggleKeyboard(){
         keyboardHandle.SetActive(!keyboardHandle.activeSelf);
-        if(langMode==1){
-            inputBarHandle.SetActive(keyboardHandle.activeSelf);
-        }
+        RefreshInputBarVisibility();
+    }
+    private void RefreshInputBarVisibility(){
+        // Hide the entire composition handle in English, as in the original UI.
+        inputBarHandle.SetActive(langMode != 0 && keyboardHandle.activeSelf);
     }
     //握把开关
     public void ToggleHandleRenderers(){
@@ -570,9 +644,18 @@ public class HXIMEUI : UdonSharpBehaviour
     }
     //强制全拼
     public void ToggleAccurateMode(){
+        if (langMode != 1) return;
         accurateMode = accurateModeToggle.isOn;
     }
-    //切换拆合
+    private void RefreshSettingsTextColors(){
+        for (int i = 0; i < settingPanelButtonsText.Length; i++){
+            bool disabled = settingsPanel.transform.Find("Buttons").GetChild(i).name == "AccurateMode" && langMode != 1;
+            settingPanelButtonsText[i].color = disabled
+                ? new Color(0.5f, 0.5f, 0.5f, settingsTextColor.a)
+                : settingsTextColor;
+        }
+    }
+    //切换拆合：位置跟随设置适用于所有语言。
     public void ToggleSplit(){
         inputBarConstraint.enabled = !inputBarConstraint.enabled;
     }
@@ -601,10 +684,11 @@ public class HXIMEUI : UdonSharpBehaviour
         foreach(TMP_Text t in skinSelections){t.color = mainColor1[i];}
         //设置主色2
         switchBarSimpTradButton.color = mainColor2[i];
-        switchBarUlpbButton.color = mainColor2[i];
+        if (switchBarUlpbButton != null) switchBarUlpbButton.color = mainColor2[i];
         foreach(TMP_Text t in closeButtonTexts){t.color = mainColor2[i];}
         foreach(Image img in settingPanelButtonsIcon){img.color = mainColor2[i];}
-        foreach(TMP_Text t in settingPanelButtonsText){t.color = mainColor2[i];}
+        settingsTextColor = mainColor2[i];
+        RefreshSettingsTextColors();
         keyboardToggleImage.color = mainColor2[i];
         handleToggleImage.color = mainColor2[i];
         settingsImage.color = mainColor2[i];

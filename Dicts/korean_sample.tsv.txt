@@ -1,0 +1,12 @@
+# Minimal examples authored for HXIME. word<TAB>romanized code<TAB>weight
+안녕하세요	annyeonghaseyo	100
+안녕	annyeong	100
+감사합니다	gamsahamnida	100
+한국어	hangugeo	100
+한국	hanguk	100
+서울	seoul	100
+네	ne	100
+아니요	aniyo	100
+학교	hakgyo	100
+고양이	goyangi	100
+사랑	sarang	100

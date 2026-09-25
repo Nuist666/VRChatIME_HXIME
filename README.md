@@ -1,5 +1,11 @@
 ### HXIME v0.9 Chinese Input Keyboard VRChat世界用中文输入法+键盘 VRChat用中国語入力+キーボード
 
+新增可配置的多语言词库输入，附日语、韩语罗马字编码示例。配置方法、导入格式与功能范围见 [多语言使用说明](MULTILINGUAL.md)。
+
+`Dicts` 中已提供可直接导入的 Mozc 日语词库与国立国语院基础韩语词库，包含较小版本和完整转换版本。文件选择、数据来源及许可证见 [词库说明](Dicts/SOURCES.md)。
+
+新版预制件默认连接日韩精简词库，语言按钮循环「中 → Ja → Ko → En」。旧场景可通过 `Tools → HXIME → Configure Japanese and Korean Dictionaries` 补齐连接。
+
 作者还不会用git，所以非常感谢帮忙提交PR的大家。
 
 还在苦恼没有办法在世界里痛快地打中文吗？就用HXIME把你憋了那么多的中文通通打出来吧！

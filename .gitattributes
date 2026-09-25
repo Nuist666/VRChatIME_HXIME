@@ -1,0 +1,4 @@
+# Preserve generated dictionary checksums on Windows checkouts.
+Dicts/*.dict.tsv.txt text eol=lf
+Dicts/*_sample.tsv.txt text eol=lf
+Dicts/dictionary-manifest.json text eol=lf

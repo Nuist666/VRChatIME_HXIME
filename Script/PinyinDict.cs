@@ -17,6 +17,7 @@ namespace HX2xianglong90.HXIME
 {
     public class PinyinDict : UdonSharpBehaviour
     {
+        public string languageLabel = "IME";
         public string[] entries;
         public string[] pinyins;
         public int[] weights;
@@ -42,8 +43,11 @@ namespace HX2xianglong90.HXIME
             // 显示当前数据统计
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("当前字典数据", EditorStyles.boldLabel);
+            serializedObject.Update();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("languageLabel"), new GUIContent("语言按钮名称"));
+            serializedObject.ApplyModifiedProperties();
             EditorGUILayout.LabelField($"词条数量: {targetScript.entries?.Length ?? 0}");
-            EditorGUILayout.LabelField($"拼音数量: {targetScript.pinyins?.Length ?? 0}");
+            EditorGUILayout.LabelField($"编码数量: {targetScript.pinyins?.Length ?? 0}");
             EditorGUILayout.LabelField($"权重数量: {targetScript.weights?.Length ?? 0}");
 
             // 文件加载区域
@@ -56,7 +60,7 @@ namespace HX2xianglong90.HXIME
             // 浏览文件按钮
             if (GUILayout.Button("浏览文件..."))
             {
-                string newPath = EditorUtility.OpenFilePanel("选择字典文件", "", "txt");
+                string newPath = EditorUtility.OpenFilePanel("选择 UTF-8 TSV / RIME 字典", "", "");
                 if (!string.IsNullOrEmpty(newPath))
                 {
                     filePath = newPath;
@@ -81,28 +85,44 @@ namespace HX2xianglong90.HXIME
         {
             try
             {
-                string[] allLines = File.ReadAllLines(path);
+                string[] allLines = File.ReadAllLines(path, System.Text.Encoding.UTF8);
                 var entriesList = new List<string>();
                 var pinyinsList = new List<string>();
                 var weightsList = new List<int>();
                 var indicesList = new List<int>();
                 int counter =0;
 
-                foreach (string line in allLines)
+                bool inHeader = false;
+                for (int lineIndex = 0; lineIndex < allLines.Length; lineIndex++)
                 {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    string line = allLines[lineIndex].TrimStart('\uFEFF');
+                    string trimmed = line.Trim();
+                    if (trimmed.Length == 0 || trimmed.StartsWith("#")) continue;
+                    if (trimmed == "---") { inHeader = true; continue; }
+                    if (inHeader)
+                    {
+                        // Only the standard text/code/weight column order is supported.
+                        if (trimmed.StartsWith("columns:") || trimmed.StartsWith("import_tables:"))
+                            throw new FormatException("请先将自定义 columns / import_tables 展开为标准 TSV（词条、编码、权重）。");
+                        if (trimmed == "...") inHeader = false;
+                        continue;
+                    }
 
                     string[] parts = line.Split('\t');
-                    if (parts.Length < 2) continue;
+                    if (parts.Length < 2 || parts.Length > 3)
+                        throw new FormatException($"第 {lineIndex + 1} 行必须包含 2 或 3 个 Tab 分隔的字段。");
 
                     string word = parts[0].Trim();
-                    string pinyin = parts[1].Trim();
+                    string pinyin = parts[1].Trim().ToLowerInvariant();
+                    if (word.Length == 0 || pinyin.Length == 0)
+                        throw new FormatException($"第 {lineIndex + 1} 行的词条或编码为空。");
                     
                     // 处理权重 - 如果没有权重列，默认为0
                     int weight = 0;
                     if (parts.Length >= 3 && !string.IsNullOrWhiteSpace(parts[2]))
                     {
-                        int.TryParse(parts[2].Trim(), out weight);
+                        if (!int.TryParse(parts[2].Trim(), out weight) || weight < 0)
+                            throw new FormatException($"第 {lineIndex + 1} 行权重必须为非负整数。");
                     }
 
                     entriesList.Add(word);
@@ -111,14 +131,18 @@ namespace HX2xianglong90.HXIME
                     indicesList.Add(counter);
                     counter++;
                 }
+                if (inHeader) throw new FormatException("RIME 文件头缺少 ... 结束标记。");
+                if (counter == 0) throw new FormatException("字典没有有效词条，原词库保持不变。");
 
                 // 直接应用到目标组件
+                Undo.RecordObject(targetScript, "Import HXIME dictionary");
                 targetScript.entries = entriesList.ToArray();
                 targetScript.weights = weightsList.ToArray();
                 targetScript.pinyins = pinyinsList.ToArray();
                 targetScript.indices = indicesList.ToArray();
 
                 EditorUtility.SetDirty(targetScript);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(targetScript);
                 EditorUtility.DisplayDialog("成功", 
                     $"字典加载并应用成功！\n词条数量: {entriesList.Count}", 
                     "确定");

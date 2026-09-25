@@ -92,6 +92,75 @@ public class PinyinEngine : UdonSharpBehaviour
     // Candidate Matcher 匹配器
     // Dict Pool 拼音字典数据池
     [SerializeField] private PinyinDict[] dicts;
+    [Header("扩展语言词库（按此顺序加入语言切换）")]
+    public PinyinDict[] additionalDicts = new PinyinDict[0];
+
+    public int NextLanguage(int current)
+    {
+        int count = additionalDicts == null ? 0 : additionalDicts.Length;
+        for (int mode = current + 1; mode < count + 2; mode++)
+        {
+            if (mode == 1 || additionalDicts[mode - 2] != null) return mode;
+        }
+        return 0;
+    }
+
+    public string LanguageLabel(int mode)
+    {
+        if (mode == 0) return "En";
+        if (mode == 1) return "中";
+        return additionalDicts[mode - 2].languageLabel;
+    }
+
+    // Whole-reading lookup for additional languages; never applies Chinese segmentation.
+    public string[] MatchLanguage(int mode, string input, int limit)
+    {
+        if (limit <= 0 || string.IsNullOrWhiteSpace(input) || additionalDicts == null
+            || mode < 2 || mode - 2 >= additionalDicts.Length) return new string[0];
+        PinyinDict dictionary = additionalDicts[mode - 2];
+        if (dictionary == null || dictionary.entries == null || dictionary.pinyins == null
+            || dictionary.weights == null || dictionary.entries.Length != dictionary.pinyins.Length
+            || dictionary.entries.Length != dictionary.weights.Length) return new string[0];
+        string reading = input.Trim().ToLowerInvariant();
+        string[] words = new string[limit];
+        double[] scores = new double[limit];
+        int count = 0;
+        for (int i = 0; i < dictionary.entries.Length; i++)
+        {
+            string code = dictionary.pinyins[i];
+            if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(dictionary.entries[i])) continue;
+            code = code.Trim().ToLowerInvariant();
+            if (!code.StartsWith(reading)) continue;
+            double score = (code == reading ? 1000000d : 0d)
+                + Math.Log10(Math.Max(0, dictionary.weights[i]) + 1d);
+            int duplicate = Array.IndexOf(words, dictionary.entries[i]);
+            if (duplicate >= 0)
+            {
+                if (scores[duplicate] >= score) continue;
+                for (int j = duplicate; j < count - 1; j++)
+                {
+                    words[j] = words[j + 1];
+                    scores[j] = scores[j + 1];
+                }
+                count--;
+                words[count] = null;
+            }
+            int pos = count;
+            while (pos > 0 && scores[pos - 1] < score) pos--;
+            if (pos >= limit) continue;
+            for (int j = Math.Min(count, limit - 1); j > pos; j--)
+            {
+                words[j] = words[j - 1];
+                scores[j] = scores[j - 1];
+            }
+            words[pos] = dictionary.entries[i];
+            scores[pos] = score;
+            count = Math.Min(count + 1, limit);
+        }
+        string[] result = new string[count];
+        Array.Copy(words, result, count);
+        return result;
+    }
     private PinyinDict dict_pool;
     // 数组大小
     private int max_candidates;
@@ -105,22 +174,20 @@ public class PinyinEngine : UdonSharpBehaviour
     private int[] indices;
     private void Start()
     {
-        dict_pool = dicts[0];
-        max_candidates = dict_pool.entries.Length;
-        pinyins = dict_pool.pinyins;
-        indices = dict_pool.indices;
+        if (dict_pool == null) SwitchSimp();
     }
     public void SwitchSimp(){ // Excute when dict pool changed
-        dict_pool = dicts[0];
-        max_candidates = dict_pool.entries.Length;
-        pinyins = dict_pool.pinyins;
-        indices = dict_pool.indices;
+        SelectChineseDictionary(0);
     }
     public void SwitchTrad(){
-        dict_pool = dicts[1];
-        max_candidates = dict_pool.entries.Length;
-        pinyins = dict_pool.pinyins;
-        indices = dict_pool.indices;
+        SelectChineseDictionary(1);
+    }
+    private void SelectChineseDictionary(int index)
+    {
+        dict_pool = dicts != null && index < dicts.Length ? dicts[index] : null;
+        max_candidates = dict_pool == null || dict_pool.entries == null ? 0 : dict_pool.entries.Length;
+        pinyins = dict_pool == null ? null : dict_pool.pinyins;
+        indices = dict_pool == null ? null : dict_pool.indices;
     }
     private string[] Segment(string pinyinString,string mode="mixed"){
         string pinyin_str = pinyinString.ToLower();
@@ -442,24 +509,14 @@ private string GetInitials(string pinyin)
     private int[] _find_exact_matches(string input_pinyin)
     {
 
-        // 找到第一个匹配的位置
-        int left = Array.IndexOf(pinyins,input_pinyin);
-
-        // 如果没有找到匹配项，返回空数组
-        if (left < 0 || pinyins[left] != input_pinyin)
-        {
-            return new int[0];
-        }
-
-        // 找到最后一个匹配的位置
-        int right = Array.LastIndexOf(pinyins,input_pinyin)+1;
-        
-        // 返回所有匹配项的索引
-        Debug.Log(left);
-        Debug.Log(right);
-        // 使用Array.Copy来获取子数组
-        int[] result = new int[right - left];
-        Array.Copy(indices, left, result, 0, right - left);
+        // Imported dictionaries need not group identical readings together.
+        int count = 0;
+        for (int i = 0; i < pinyins.Length; i++)
+            if (pinyins[i] == input_pinyin) count++;
+        int[] result = new int[count];
+        int next = 0;
+        for (int i = 0; i < pinyins.Length; i++)
+            if (pinyins[i] == input_pinyin) result[next++] = indices[i];
         return result;
     }
 private int[] _find_fuzzy_matches(string inputPinyin, int startIndex, int endIndex)
@@ -490,6 +547,10 @@ private int[] _find_fuzzy_matches(string inputPinyin, int startIndex, int endInd
 
 public string[] Match(string inputPinyin, int limit = 20,bool accurateMode = false, bool ulpb = false)
 {
+    if (dict_pool == null) SwitchSimp();
+    if (limit <= 0 || string.IsNullOrWhiteSpace(inputPinyin) || max_candidates == 0
+        || pinyins == null || indices == null) return new string[0];
+    inputPinyin = inputPinyin.Trim().ToLowerInvariant();
     Debug.Log($"Match {inputPinyin}");
     // 初始化候选数组
     string[] finalCandidates = new string[limit];
@@ -512,7 +573,7 @@ public string[] Match(string inputPinyin, int limit = 20,bool accurateMode = fal
     {
         int idx = exactMatches[i];
         allCandidates[totalCount] = dict_pool.entries[idx];
-        allWeights[totalCount] = Math.Log10(dict_pool.weights[idx] + 1) + 100 * 1000000;
+        allWeights[totalCount] = Math.Log10(Math.Max(0, dict_pool.weights[idx]) + 1d) + 100 * 1000000;
         totalCount++;
     }
     if (!accurateMode){
@@ -540,7 +601,7 @@ public string[] Match(string inputPinyin, int limit = 20,bool accurateMode = fal
                     if (!exists)
                     {
                         allCandidates[totalCount] = dict_pool.entries[indices[i]];
-                        allWeights[totalCount] = Math.Log10(dict_pool.weights[indices[i]] + 1) + score * 1000000;
+                        allWeights[totalCount] = Math.Log10(Math.Max(0, dict_pool.weights[indices[i]]) + 1d) + score * 1000000;
                         totalCount++;
                     }
                 }
