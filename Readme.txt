@@ -1,4 +1,4 @@
-HXIME v0.9.5 Chinese Input Keyboard VRChat世界用中文输入法+键盘 VRChat用中国語入力+キーボード
+HXIME v0.9.6 Chinese Input Keyboard VRChat世界用中文输入法+键盘 VRChat用中国語入力+キーボード
 
 还在苦恼没有办法在世界里痛快地打中文吗？就用HXIME把你憋了那么多的中文通通打出来吧！
 支持全拼，简拼，混拼，中英切换，简体繁体切换。安装简便，还可以自定义各种皮肤哦。
@@ -18,6 +18,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 默认会使用第一个皮肤，你可以调整皮肤的顺序，实现更换默认皮肤。
 （注意，皮肤描述和图片必须一一对应哦。当然，觉得有些不太合适的皮肤可以移除）
 在HXIME_Pinyin的HXIMEUI里面，目标输入框那地方选择你的目标输入框
+使用前请在各个语言的PinyinDict检查器里依次执行「加载并应用字典」与「重建查询索引」。预制件本身不含词条与索引，缺少任一步会阻止进入Play模式与构建世界。
 完成！
 
 Drag the HXIME_Pinyin prefab into the map.
@@ -25,6 +26,7 @@ You can adjust SwitchBarHandle, InputBarHandle, KeyboardHandle to your favorite 
 The first skin will be used by default. You can adjust the order of the skins to change the default skin.
 (Note that the skin description and the image must correspond one to one. Of course, if you think some skins are not suitable, you can remove them)
 In the HXIMEUI of HXIME_Pinyin, select your target input box in the target input box
+Before use, run "Load and apply dictionary" and then "Rebuild lookup index" for each language in its PinyinDict inspector. The prefab itself contains no entries and no index, and missing setup blocks Play mode and world builds.
 Done!
 
 HXIME_Pinyin プレハブをドラッグドロップします。
@@ -33,6 +35,7 @@ SwitchBarHandle、InputBarHandle、KeyboardHandle を好きな位置に調整で
 デフォルトの外観では最初のスキンが使用されます。スキンの順序を調整して、デフォルトのスキンを置き換えることができる。
 （スキンの説明と画像は1対1で対応している必要があります。もちろん、スキンが適切でないと思われる場合は削除できます）
 HXIME_PinyinのHXIMEUIで、TargetInputFieldで入力したいTargetInputFieldを選択します。
+使用前に、各言語のPinyinDictインスペクターで「辞書を読み込んで適用」→「索引を再構築」を実行してください。プレハブには語句も索引も含まれておらず、未設定の場合はPlayモードとワールドビルドがブロックされます。
 仕上げる！
 
 Q&A：
@@ -62,8 +65,8 @@ HXIME白;作者: HX2 xianglong90;(255,255,255,128);(52,161,255,255);(52,255,209,
 Q: 可以放多少套皮肤？
 A：理论上基本无限。但是玩家目前只有前9个皮肤有槽位可以选。当然，可以从装有HXIMEUI这个脚本的物体上调用SetSkin(索引)这个公开方法来设置第10套及后面的皮肤。
 Q: 我想要导入自己的字词库怎么办？
-A: PinyinEngine里面有简体和繁体用的字词库。可以加载txt字典对默认字词库进行替换。格式为"字tab拼音tab权重(可省略，默认为0)"。
-您可能已经发现了，这就是RIME字典的格式！所以我们可以把RIME的字典删掉前面部分，然后后缀名改为.txt就能导入。不过我想默认字词库已经足够了。
+A: PinyinEngine里面有简体和繁体用的字词库，其他语言在Additional Dicts数组里。预制件本身不含词条与索引，需要在对应语言的PinyinDict检查器里依次执行「加载并应用字典」与「重建查询索引」；词条与索引只写入Assets/HXIME_DictionaryData/下的独立二进制资产，预制件与场景都不会被改动。格式为"字tab拼音tab权重(可省略，默认为0)"。
+您可能已经发现了，这就是RIME字典的格式！带---/...文件头的标准RIME字典也可以直接使用；带自定义columns/import_tables的字典需要先展开成三列。未加载数据或未重建索引的语言会阻止进入Play模式与构建世界。
 
 Q: Can I make my own skin?
 A: Of course! You just need to write a skin description and prepare a picture as the skin background. The format of the skin description is: skin title; skin description; button color rgba; main color 1 rgba; main color 2 rgba
@@ -75,8 +78,8 @@ That is to say, if you are willing to tinker, you can even try to load it online
 Q: How many sets of skins can be placed?
 A: Theoretically, it is basically unlimited. However, players currently only have slots for the first 9 skins. Of course, you can call the public method SetSkin(index) from the object with the HXIMEUI script installed to set the 10th and subsequent skins.
 Q: What if I want to import my own word library?
-A: PinyinEngine has word libraries for simplified and traditional Chinese. You can load a txt dictionary to replace the default word library. The format is "character tab pinyin tab weight (optional, default is 0)".
-You may have discovered that this is the format of the RIME dictionary! So we can delete the front part of the RIME dictionary, and then change the suffix to .txt to import it. But I think the default word library is enough.
+A: PinyinEngine has word libraries for simplified and traditional Chinese, and other languages live in the Additional Dicts array. The prefab itself contains no entries and no index: click "Load and apply dictionary" and then "Rebuild lookup index" in the PinyinDict inspector of that language, and the entries and the index are written only into the standalone binary asset under Assets/HXIME_DictionaryData/, without changing the prefab or the scene. The format is "character tab pinyin tab weight (optional, default is 0)".
+You may have discovered that this is the format of the RIME dictionary! Standard RIME dictionaries with a --- / ... header can be used directly; dictionaries with custom columns / import_tables must be expanded into the three columns first. A language whose data is not loaded or whose index is not built blocks Play mode and world builds.
 
 Q: 独自のスキンを作成できますか?
 A: もちろんです！スキンの説明を書いて、スキンの背景となる画像を用意するだけです。スキンの説明の形式は次のとおりです: スキンのタイトル;スキンの説明。ボタンの色 RGBA;メインカラー 1 rgba;メインカラー2 RGBA
@@ -88,8 +91,8 @@ HXIME ホワイト;著者: HX2 xianglong90;(255,255,255,128);(52,161,255,255);(5
 Q: スキンは何セットまで配置できますか?
 A: 理論上は基本的に無制限です。ただし、現在プレイヤーが選択できるスキンのスロットは最初の 9 つだけです。もちろん、HXIMEUI スクリプトがインストールされたオブジェクトからパブリック メソッド SetSkin(index) を呼び出して、10 番目以降のスキンを設定することもできます。
 Q: 独自の語彙をインポートしたい場合はどうすればいいですか?
-A: PinyinEngine には、簡体字中国語と繁体字中国語の両方の単語ライブラリが含まれています。 txt 辞書をロードして、デフォルトの単語ライブラリを置き換えることができます。形式は「文字タブ ピンインタブ 重み（省略可能、デフォルトは 0）」です。
-ご想像のとおり、これが RIME 辞書の形式です。したがって、RIME 辞書の前半部分を削除し、サフィックスを .txt に変更してインポートすることができます。しかし、デフォルトの単語ライブラリで十分だと思います。
+A: PinyinEngine には簡体字中国語と繁体字中国語の単語ライブラリがあり、その他の言語は Additional Dicts 配列にあります。プレハブ自体には語句も索引も含まれていません。その言語の PinyinDict インスペクターで「辞書を読み込んで適用」→「索引を再構築」を実行すると、語句と索引は Assets/HXIME_DictionaryData/ 以下の独立バイナリ アセットにだけ書き込まれ、プレハブもシーンも変更されません。形式は「文字タブ ピンインタブ 重み（省略可能、デフォルトは 0）」です。
+ご想像のとおり、これが RIME 辞書の形式です。--- / ... ヘッダー付きの標準 RIME 辞書もそのまま利用できます。独自の columns / import_tables を使う辞書は、先に 3 列へ展開してください。データを読み込んでいない、または索引を構築していない言語は Play モードとワールドビルドをブロックします。
 
 Licence: GPL3.0
 https://github.com/xianglong90II/VRChatChineseIME_HXIME
@@ -101,6 +104,7 @@ Credit:
 繁体词库 Traditional Chinese Dictionary　繫体字辞書データ：RIME朙月拼音 https://github.com/rime/rime-luna-pinyin
 
 Updates:
+v 0.9.6 Candidate count is configurable; loading a dictionary writes the entries into a standalone asset under `Assets/HXIME_DictionaryData/` and no longer changes the prefab, so each language has to be loaded with "Load and apply dictionary" and then indexed with "Rebuild lookup index" (missing setup blocks Play mode and world builds); the Japanese/Korean dictionary conversion script ships with the package. 候选词数量支持自定义；加载词库改为写入 `Assets/HXIME_DictionaryData/` 下的独立资产、不再改动预制件，因此每个语言都要手动执行「加载并应用字典」与「重建查询索引」（缺失配置会阻止进入 Play 模式与构建世界）；日/韩词库转换脚本随包提供。 候補数の上限を設定できるようにし、辞書の読み込みは `Assets/HXIME_DictionaryData/` の独立アセットへ書き込む方式に変更（プレハブは変更しません）。そのため各言語で「辞書を読み込んで適用」の後に「索引を再構築」を手動で実行する必要があり、未設定の場合は Play モードとワールドビルドがブロックされます。日本語・韓国語辞書の変換スクリプトを同梱しました。
 v 0.9.5 Optimized dictionary indexes and candidate lookup for Chinese, Japanese and Korean; Japanese and Korean can be enabled individually. 优化中、日、韩词库索引与候选查询；日文、韩文支持自定义是否启用。 中国語・日本語・韓国語の辞書インデックスと候補検索を最適化し、日本語と韓国語を個別に有効化できるようにしました。
 v 0.9.4 Added multilingual dictionary input for Japanese and Korean. 新增日语、韩语词库输入。 日本語・韓国語の辞書入力を追加しました。
 v 0.9.2 Fixed the problems that cannot type “ang”,"ing,"ong" syllables. 修复了打不出后鼻音的问题。 後鼻音が入力できない不具合が修正しました。

@@ -2,3 +2,4 @@
 Dicts/*.dict.tsv.txt text eol=lf
 Dicts/*_sample.tsv.txt text eol=lf
 Dicts/dictionary-manifest.json text eol=lf
+Dicts/tools/*.py text eol=lf

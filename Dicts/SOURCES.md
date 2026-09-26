@@ -1,15 +1,21 @@
 # 日语、韩语词库
 
-本目录新增词库与既存中文词库一样，均为 UTF-8 `.txt` 文本，格式是「词条、输入编码、非负整数权重」，以 Tab 分隔，可直接用 `PinyinDict` 的「加载并应用字典」导入。
+其他语言：[English](SOURCES-EN.md) ｜ [日本語](SOURCES-JP.md) ｜ [한국어](SOURCES-KO.md)
+
+本目录新增词库与既存中文词库一样，均为 UTF-8 `.txt` 文本，格式是「词条、输入编码、权重」，以 Tab 分隔，可用 `PinyinDict` 的「加载并应用字典」解析应用，再用「重建查询索引」构建索引；预制件中的 `JapaneseDictionary` 与 `KoreanDictionary` 已分别挂接下表的 `japanese_mozc_common.dict.tsv.txt` 与 `korean_nikl_common.dict.tsv.txt`。权重可省略（默认为 0），接受非负整数、RIME 常见的百分比（如 `luna_pinyin` 的 `99.93%`）和小数；百分比与小数在导入时按 1/100 精度放大成整数。
 
 | 文件 | 用途 |
 | --- | --- |
 | `japanese_mozc_common.dict.tsv.txt` | 日语较小版本，按转换权重选取前 30,000 个词条/编码对，建议先测试此版本 |
-| `japanese_mozc.dict.tsv.txt` | 日语完整转换结果，覆盖更多词形与专名 |
+| `japanese_mozc.dict.tsv.txt` | 日语完整转换结果，覆盖更多词形与专名。**警告：词条数量过多，不推荐直接使用。** |
 | `korean_nikl_common.dict.tsv.txt` | 韩语已分级词条按权重选取前 10,000 个词条/编码对，建议先测试此版本 |
-| `korean_nikl.dict.tsv.txt` | 韩语基础词典完整转换结果，包括未分级词条 |
+| `korean_nikl.dict.tsv.txt` | 韩语基础词典完整转换结果，包括未分级词条。**警告：词条数量过多，不推荐直接使用。** |
 
-“完整”指下述过滤规则后的完整结果，并不包含原始数据的所有内容。具体行数、字节数、SHA-256、上游提交号与每个源文件地址见 `dictionary-manifest.json`。较小版本不是人工审校的高频词表；当前引擎逐条扫描，仍需在目标 VRChat 平台验证延迟。
+「加载并应用字典」会解析挂接的源文件，把词条与权重写入独立词库资产，但不构建查询索引；之后还需在同一组件的检查器里执行「重建查询索引」，把排序索引写进同一个资产。两步也可以用菜单执行：`Tools → HXIME → Simplified Chinese / Traditional Chinese / Japanese / Korean → Load and Apply Dictionary` 与对应的 `Rebuild Lookup Index`，或 `Tools → HXIME → Load and Apply All Dictionaries`、`Tools → HXIME → Rebuild All Lookup Indexes`。解析阶段会显示已处理行数；Console 以 `[HXIME Dictionary Import]` 记录各阶段耗时。这些提示不会加速完整版词库的加载。
+
+所有词库都保存为 `Assets/HXIME_DictionaryData/` 下独立的二进制 `.asset`（例如 `SimpDictPool.asset`）：先由「加载并应用字典」写入词条，再由「重建查询索引」写入排序索引。预制件与场景都不会收到词库数据或索引数组，预制件只挂接词库源文件；资产在用户自己的工程里生成，不属于随包发布的预制件，随包发布的是本目录中的源文本文件。重新加载会创建新资产，避免影响其他引用者。进入 Play 模式或构建世界时，编辑器会把资产中的词条和索引烘焙进 Udon；缺少加载或索引会取消进入 Play 模式并让构建世界失败。此改动避免大数组的预制件覆盖开销；某个语言完成加载与索引后，运行时的查询性能与之前一致。
+
+“完整”指下述过滤规则后的完整结果，并不包含原始数据的所有内容。具体行数、字节数、SHA-256、上游提交号与每个源文件地址见 `dictionary-manifest.json`。较小版本不是人工审校的高频词表；当前引擎使用排序索引查询，仍需在目标 VRChat 平台验证延迟。
 
 ## 日语来源与处理
 
@@ -43,10 +49,29 @@
 
 ## 溯源与校验
 
-本目录只随包发布转换结果与许可证，构建脚本与自动化测试已从仓库移除，因此仓库内无法再重现转换过程。上文的来源、固定提交、过滤规则与权重换算即为可追溯的全部依据；源数据未被再分发，需按上文链接自行获取。
+本目录只随包发布转换结果与许可证。转换脚本位于 `tools/build_dictionaries.py`：它按 `dictionary-manifest.json` 记录的地址下载固定提交的源数据、校验字节数与 SHA-256、按上文规则重新生成四个词库，并与清单中的 SHA-256 逐一比对，因此转换过程可在仓库内重现。源数据仍不随包分发，需按上文链接自行获取。运行方式：`python Dicts/tools/build_dictionaries.py` 重新生成并校验；加 `--check` 则只做校验：用固定提交的上游数据重新生成全部词库、与 `dictionary-manifest.json` 里的 SHA-256 逐字节比对，不改动本目录。转换库固定为 `pykakasi==2.3.0` 与 `korean-romanizer==0.28.0`；下载的上游数据会缓存下来以加速重复运行，缓存位置由下表 `DEFAULT_CACHE` 决定，可随时删除。
 
-已发布文件可用 `dictionary-manifest.json` 核对：`outputs` 给出每个词库的条目数与 SHA-256，`bytes` 给出字节数，`sources` 与 `source_revisions` 记录上游文件地址与提交号，`conversion_packages` 记录当时使用的转换库版本，`statistics` 记录过滤统计。哈希使用 SHA-256 对文件整体计算（含 `#` 注释行）。
+### 脚本中的设置项
 
-转换只使用了项目少量示例补充，其校验值记录在 `local_supplements` 中。许可证与署名要求不因构建脚本移除而改变，仍按上文各节执行。
+权重与规模设置集中在 `build_dictionaries.py` 顶部，改动这些值就等于改变词库规模与排序倾向：
+
+| 常量 | 当前值 | 作用 |
+| --- | --- | --- |
+| `JAPANESE_COST_BASE` | `40000` | 日语权重 = 该值 − Mozc 成本，成本越低权重越高；调大该值会整体抬高日语权重 |
+| `JAPANESE_SAMPLE_WEIGHT` | `50000` | 项目日语示例统一使用的权重，覆盖 `japanese_sample.tsv.txt` 里写的 100/80/50 |
+| `JAPANESE_COMPACT_SIZE` | `30000` | `japanese_mozc_common` 保留的条数：按权重降序，并列时先编码再词条，取前 N 条 |
+| `JAPANESE_ALLOWED` | 平假名 `U+3041–U+3096`、片假名 `U+30A1–U+30FA`、`ー` `U+30FC` | 允许出现在读音里的字符，其余按「非纯假名」整行过滤 |
+| `JAPANESE_CODE` | `^[a-z'-]+$` | 罗马字编码允许的字符，不匹配的读音整行丢弃 |
+| `KOREAN_LEVEL_WEIGHT` | 초급 `300`、중급 `200`、고급 `100`、未分级（`없음` 或缺等级）`10` | 学习等级对应的权重 |
+| `KOREAN_SAMPLE_WEIGHT` | `1000` | 项目韩语示例统一使用的权重，覆盖 `korean_sample.tsv.txt` 里写的 100 |
+| `KOREAN_GRADED_MIN_WEIGHT` | `100` | `korean_nikl_common` 的候选下限：只有权重不低于该值的已分级条目对参与取前 N |
+| `KOREAN_COMPACT_SIZE` | `10000` | `korean_nikl_common` 保留的条数 |
+| `KOREAN_WORD` | `^[가-힣]+( [가-힣]+)*$` | 词头必须是韩文音节、词间单个空格；连字符词缀、独立字母、非纯韩文与双空格被过滤 |
+
+其余设置：`DEFAULT_CACHE`（上游缓存目录，默认 `Temp/dict-cache`）、`JAPANESE_SAMPLE` / `KOREAN_SAMPLE`（示例文件路径）、`HEADERS`（四个输出各自的三行 `#` 注释头，参与 SHA-256）。改动任一常量都会改变输出，需重新运行脚本，并同步更新 `dictionary-manifest.json` 中的 `outputs` 与 `statistics`。
+
+已发布文件可用 `dictionary-manifest.json` 核对：`generator` 记录生成脚本（`Dicts/tools/build_dictionaries.py`），`outputs` 给出每个词库的条目数与 SHA-256，`bytes` 给出字节数，`sources` 与 `source_revisions` 记录上游文件地址与提交号，`conversion_packages` 记录当时使用的转换库版本，`statistics` 记录过滤统计。哈希使用 SHA-256 对文件整体计算（含 `#` 注释行）。
+
+转换只使用了项目少量示例补充，其校验值记录在 `local_supplements` 中。许可证与署名要求不因转换方式或脚本位置改变，仍按上文各节执行。
 
 导入配置步骤见 [MULTILINGUAL.md](../MULTILINGUAL.md)。选择同一语言的一个版本即可，不需同时加载完整与较小版本。

@@ -1,4 +1,4 @@
-### HXIME v0.9.5 VRChat 월드용 다국어 입력 키보드
+### HXIME v0.9.6 VRChat 월드용 다국어 입력 키보드
 
 다른 언어: [中文](README.md) ｜ [English](README-EN.md) ｜ [日本語](README-JP.md)
 
@@ -12,11 +12,13 @@ VRChat 월드를 위한 입력 키보드입니다. 처음에는 중국어 병음
 - 사전은 Unity 에디터에서 가져와 월드와 함께 배포되며, 플레이어의 로컬 파일을 읽지 않습니다
 - 설치가 간단하고 스킨을 바꿀 수 있습니다. 언어 버튼은 「中 → JP → Ko → En」을 순환합니다
 
-`Dicts` 에는 바로 가져올 수 있는 Google Mozc 일본어 사전과 국립국어원 한국어기초사전이 있으며, 간편 버전과 전체 변환 버전을 모두 제공합니다. 파일 선택, 출처, 라이선스는 [사전 안내](Dicts/SOURCES.md)를 참고하세요.
+`Dicts` 에는 바로 가져올 수 있는 Google Mozc 일본어 사전과 국립국어원 한국어기초사전이 있으며, 간편 버전과 전체 변환 버전을 모두 제공합니다. 파일 선택, 출처, 라이선스는 [사전 안내](Dicts/SOURCES-KO.md)를 참고하세요.
 
-현재 `HXIME_Pinyin.prefab` 은 일본어·한국어 간편 사전이 기본으로 연결되어 있어 바로 언어를 전환할 수 있습니다. 예전 씬에서는 `Tools → HXIME → Configure Japanese and Korean Dictionaries` 를 실행하세요. 자세한 설정 방법, 사전 파일 형식, 기능 범위는 [다국어 사전 입력](MULTILINGUAL-KO.md)에 정리했습니다([中文](MULTILINGUAL.md) ｜ [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md)).
+현재 `HXIME_Pinyin.prefab` 에는 단어와 색인이 들어 있지 않으며, 네 사전 컴포넌트는 각각 사전 소스 파일을 연결하고 있을 뿐입니다. 사용하기 전에 [다국어 사전 입력](MULTILINGUAL-KO.md)에 따라 사용할 언어마다 「사전 불러와 적용」과 「색인 다시 만들기」를 차례로 실행하세요. 둘 중 하나가 없으면 컴포넌트에 영어 ERROR 가 표시되고 Play 모드 진입이 취소되며 월드 빌드도 실패합니다. 자세한 설정 방법, 사전 파일 형식, 기능 범위는 [다국어 사전 입력](MULTILINGUAL-KO.md)에 정리했습니다([中文](MULTILINGUAL.md) ｜ [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md)).
 
-중국어·일본어·한국어는 같은 정렬 색인과 Top-30 후보 검색을 공유하고, 중국어는 역방향 접두사와 간음(简拼) 일치도 유지합니다. 색인은 사전 가져오기, Play 모드 진입, 월드 빌드 시 에디터에서 생성되므로 키를 누를 때는 관련 구간만 검색합니다. 예전 씬이나 직접 수정한 사전은 `Tools → HXIME → Rebuild All Dictionary Indexes` 로 다시 만들고 씬을 저장하세요. 사용자 스크립트가 실행 중에 사전 가중치를 바꾸면 엔진의 `InvalidateMatchCache()` 를 호출해야 합니다. 코드와 항목 구조는 에디터에서 수정한 뒤 색인을 다시 만들어야 합니다. 배경, 색인 구조, 검증 범위는 [후보 검색 최적화](PERFORMANCE-KO.md)에 정리했습니다([中文](PERFORMANCE.md) ｜ [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md)).
+중국어·일본어·한국어는 같은 정렬 색인과 Top-K 후보 검색을 공유하고, 중국어는 역방향 접두사와 간음(简拼) 일치도 유지합니다. 색인은 에디터에서 「색인 다시 만들기」를 실행할 때 생성되어 `Assets/HXIME_DictionaryData/` 아래 독립 바이너리 사전 에셋에 기록됩니다. Play 모드 진입과 월드 빌드 시 에디터가 그 에셋의 단어와 색인을 Udon에 기록하므로 키를 누를 때는 관련 구간만 검색합니다. 예전 씬이나 직접 수정한 사전은 `Tools → HXIME → Rebuild All Lookup Indexes` 또는 언어별 `Rebuild Lookup Index` 로 다시 만드세요(예전 `Tools → HXIME → Rebuild All Dictionary Indexes` 메뉴는 없습니다). 사용자 스크립트가 실행 중에 사전 가중치를 바꾸면 엔진의 `InvalidateMatchCache()` 를 호출해야 합니다. 코드와 항목 구조는 에디터에서 수정한 뒤 다시 불러오고 색인을 다시 만들어야 합니다. 배경, 색인 구조, 검증 범위는 [후보 검색 최적화](PERFORMANCE-KO.md)에 정리했습니다([中文](PERFORMANCE.md) ｜ [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md)).
+
+`HXIMEUI` Inspector의 `Candidate Count` (`candidateLimits`)에서 전체 후보 상한을 설정할 수 있습니다. 기본값은 50, 최솟값은 1입니다. 페이지당 표시는 여전히 5개이며 실제 개수는 일치 결과에 따라 달라집니다. 100을 초과하면 Inspector에 영어 성능 경고가 표시되지만 값은 제한되지 않습니다. 상한을 높이면 검색, 중복 제거, 정렬 비용이 증가할 수 있습니다. 특히 짧은 입력이나 큰 사전에서는 VRChat 클라이언트에서 입력 지연을 확인하세요.
 
 원작자는 아직 git을 잘 쓰지 못해서, PR을 보내주시는 모든 분께 감사드립니다.
 
@@ -31,7 +33,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - 기본값은 첫 번째 스킨입니다. 스킨 순서를 바꾸면 기본 스킨을 바꿀 수 있습니다.
 - (스킨 설명과 이미지는 1:1로 대응해야 합니다. 필요 없는 스킨은 삭제해도 됩니다.)
 - `HXIME_Pinyin` 의 `HXIMEUI` 에서 Target Inputfield 에 출력할 입력란을 지정합니다. 입력기 자체의 병음 편집란이 아니라 **별도의 출력란**을 지정해야 합니다.
-- 다국어 입력이 필요하면 [다국어 사전 입력](MULTILINGUAL-KO.md)에 따라 사전을 설정하세요. 현재 프리팹은 이미 설정되어 있습니다.
+- 사용하기 전에 [다국어 사전 입력](MULTILINGUAL-KO.md)에 따라 사용할 언어마다 「사전 불러와 적용」과 「색인 다시 만들기」를 실행하세요. 프리팹 자체에는 단어와 색인이 들어 있지 않습니다.
 - 완료!
 
 # Q&A
@@ -58,7 +60,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - A: 이론상 거의 무제한입니다. 다만 플레이어가 선택할 수 있는 슬롯은 처음 9개뿐입니다. 10번째 이후는 `HXIMEUI` 가 있는 오브젝트에서 공개 메서드 `SetSkin(index)` 를 호출해 설정합니다.
 - Q: 직접 만든 사전을 가져오려면?
 - A: 중국어 사전은 `PinyinEngine` 의 간체·번체 슬롯에, 다른 언어는 `Additional Dicts` 배열에 있습니다. 배열의 각 항목은 `PinyinDict` 컴포넌트가 있는 자식 오브젝트이며, 「언어 버튼 이름」이 버튼에 표시되는 문자입니다.
-- 「파일 찾아보기」와 「사전 불러와 적용」으로 UTF-8 텍스트 사전을 가져옵니다. 형식은 「단어 tab 코드 tab 가중치(생략 가능, 기본 0)」입니다. 확장 언어의 코드는 로마자이며 대소문자를 구분하지 않습니다.
+- 해당 언어의 `PinyinDict` 인스펙터에서 「사전 불러와 적용」을 눌러 UTF-8 텍스트 사전을 적용한 뒤 「색인 다시 만들기」를 누릅니다. 단어와 색인은 `Assets/HXIME_DictionaryData/` 아래 독립 바이너리 에셋에만 기록되며 프리팹과 씬은 변경되지 않습니다. 형식은 「단어 tab 코드 tab 가중치(생략 가능, 기본 0)」입니다. 확장 언어의 코드는 로마자이며 대소문자를 구분하지 않습니다.
 - 눈치채셨겠지만 RIME 사전 형식과 같습니다. `---` / `...` 헤더가 있는 표준 RIME 사전도 바로 가져올 수 있고, 사용자 정의 `columns` / `import_tables` 가 있는 사전은 먼저 위 세 열로 펼쳐야 합니다. 자세한 내용은 [다국어 사전 입력](MULTILINGUAL-KO.md).
 - Q: 확장 언어의 키 조작은?
 - A: 스페이스는 현재 페이지 첫 후보, 숫자 1–5는 현재 페이지 후보 선택입니다. 후보가 없으면 스페이스나 Enter 로 코드를 그대로 확정하고, Tab 은 편집 문자열을 지우고, 백스페이스는 코드를 한 글자 지웁니다. 언어를 바꾸면 선택하지 않은 코드가 먼저 확정됩니다.
@@ -73,4 +75,4 @@ https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - 번체 사전: RIME luna-pinyin https://github.com/rime/rime-luna-pinyin
 - 일본어 사전: Google Mozc https://github.com/google/mozc (BSD 3-Clause, 사전에 별도 고지 포함)
 - 한국어 사전: 국립국어원 한국어기초사전 https://krdict.korean.go.kr/ (CC BY-SA 2.0 KR)
-- 출처, 변환 규칙, 라이선스 전문: [Dicts/SOURCES.md](Dicts/SOURCES.md)
+- 출처, 변환 규칙, 라이선스 전문: [Dicts/SOURCES-KO.md](Dicts/SOURCES-KO.md)

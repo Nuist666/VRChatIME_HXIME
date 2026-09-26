@@ -451,7 +451,14 @@ public class PinyinEngine : UdonSharpBehaviour
     {
         if (dictionary == null || limit <= 0 || string.IsNullOrWhiteSpace(input)) return new string[0];
         string reading = input.Trim().ToLowerInvariant();
-        if (cachedResult != null && cachedDictionary == dictionary && cachedInput == reading
+        bool allowCache = true;
+#if UNITY_EDITOR && !COMPILER_UDONSHARP
+        // Edit-mode validation reads the asset directly. Caching is disabled there because the cached
+        // version tracks the asset, which the dictionary lookupVersion comparison below cannot see.
+        PinyinDictionaryData editorSource = Application.isPlaying ? null : PinyinLookupBuilder.ResolveData(dictionary);
+        allowCache = editorSource == null;
+#endif
+        if (allowCache && cachedResult != null && cachedDictionary == dictionary && cachedInput == reading
             && cachedLimit == limit && cachedChinese == chinese && cachedAccurate == accurate
             && cachedVersion == dictionary.lookupVersion)
         {
@@ -467,14 +474,31 @@ public class PinyinEngine : UdonSharpBehaviour
         initialOrder = dictionary.initialsOrder;
         entryMap = dictionary.indices;
         wordIds = dictionary.wordIds;
-        if (entries == null || weights == null || dictionary.pinyins == null
-            || entries.Length != weights.Length || entries.Length != dictionary.pinyins.Length
+        string[] sourcePinyins = dictionary.pinyins;
+        int sourceVersion = dictionary.lookupVersion;
+#if UNITY_EDITOR && !COMPILER_UDONSHARP
+        if (editorSource != null)
+        {
+            entries = editorSource.entries;
+            weights = editorSource.weights;
+            codes = editorSource.lookupCodes;
+            order = editorSource.codeOrder;
+            initials = editorSource.lookupInitials;
+            initialOrder = editorSource.initialsOrder;
+            entryMap = editorSource.indices;
+            wordIds = editorSource.wordIds;
+            sourcePinyins = editorSource.pinyins;
+            sourceVersion = editorSource.lookupVersion;
+        }
+#endif
+        if (entries == null || weights == null || sourcePinyins == null
+            || entries.Length != weights.Length || entries.Length != sourcePinyins.Length
             || (chinese && (entryMap == null || entryMap.Length != entries.Length))) return new string[0];
-        indexed = dictionary.lookupVersion > 0 && codes != null && order != null
+        indexed = sourceVersion > 0 && codes != null && order != null
             && codes.Length == entries.Length && order.Length == entries.Length
             && initials != null && initialOrder != null
             && initials.Length == entries.Length && initialOrder.Length == entries.Length;
-        if (!indexed) codes = dictionary.pinyins;
+        if (!indexed) codes = sourcePinyins;
         queryChinese = chinese;
         queryLimit = Math.Min(limit, entries.Length);
         topCount = 0;
@@ -541,7 +565,7 @@ public class PinyinEngine : UdonSharpBehaviour
         cachedLimit = limit;
         cachedChinese = chinese;
         cachedAccurate = accurate;
-        cachedVersion = dictionary.lookupVersion;
+        cachedVersion = sourceVersion;
         cachedResult = new string[topCount];
         for (int i = 0; i < topCount; i++) cachedResult[i] = entries[topEntries[i]];
         string[] result = new string[topCount];

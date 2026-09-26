@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using TMPro;
+using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,6 +65,25 @@ namespace HX2xianglong90.HXIME.EditorTools
                 Set(ui, "settingPanelButtonsText", bar.Find("SettingsPanel/Buttons").Cast<Transform>().Select(t => t.Find("Text").GetComponent<TMP_Text>()).ToArray());
                 var refresh = typeof(HXIMEUI).GetMethod("RefreshKeyboardLabels", BindingFlags.Instance | BindingFlags.NonPublic);
                 string report = "";
+                // 逐语言检查词条与索引；全部就绪时把数据在内存里烘进这份副本，供下面的查询冒烟测试使用
+                // （预制件本身保持空词库，绝不保存）。
+                bool allReady = true;
+                foreach (PinyinDict dictionary in prefab.GetComponentsInChildren<PinyinDict>(true))
+                {
+                    string state = PinyinLookupBuilder.Validate(dictionary);
+                    if (state != null) allReady = false;
+                    report += (state == null ? "PASS " : "FAIL ") + PinyinLookupBuilder.LanguageName(dictionary)
+                        + " (" + dictionary.name + "): entries=" + PinyinLookupBuilder.Count(dictionary).ToString("N0")
+                        + (state == null ? ", index built\n" : " — " + state + "\n");
+                    if (state == null)
+                    {
+                        PinyinLookupBuilder.BakeRuntime(dictionary);
+                        UdonSharpEditorUtility.CopyProxyToUdon(dictionary);
+                    }
+                }
+                if (!allReady)
+                    throw new Exception("Some dictionaries are not loaded or indexed; load and index every "
+                        + "language in the PinyinDict inspector first.");
                 // Include switching back, so stale labels are caught.
                 foreach (int mode in new[] { 1, 2, 3, 0, 3, 2, 1 })
                 {

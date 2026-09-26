@@ -1,8 +1,9 @@
 #if UNITY_EDITOR && !COMPILER_UDONSHARP
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -10,207 +11,152 @@ using UdonSharpEditor;
 
 namespace HX2xianglong90.HXIME.EditorTools
 {
-    // Editor-only setup: dictionaries are baked into Udon, never parsed at runtime.
+    // 语言相关的编辑器设置：Ja/Ko 语言按钮开关，以及维护/自动化用的“按语言加载 + 建索引 + 逐语言验证”。
+    // 正常运行不需要它：用户是按 PinyinDict 检视面板的语言逐个手动完成的。
     [InitializeOnLoad]
     public static class HXIMELanguageSetup
     {
         private const string Root = "Assets/HX2xianglong90/HXIME";
-        private const string Request = "Temp/HXIME-language-setup.request";
-        private const string ReportPath = "Temp/HXIME-language-setup.json";
+        private const string Request = "Temp/HXIME-dictionary-setup.request";
+        private const string ReportPath = "Temp/HXIME-dictionary-setup.txt";
         private static readonly double ReadyAt = EditorApplication.timeSinceStartup + 5;
-
-        [Serializable] private class Report
-        {
-            public bool success;
-            public string error;
-            public List<string> configured = new List<string>();
-            public List<string> verified = new List<string>();
-        }
+        private static bool busy;
 
         static HXIMELanguageSetup() { EditorApplication.update += ProcessRequest; }
 
-        // A one-shot local request is used by maintenance tooling. Normal imports do nothing.
         private static void ProcessRequest()
         {
-            if (!File.Exists(Request) || EditorApplication.timeSinceStartup < ReadyAt
+            if (busy || !File.Exists(Request) || EditorApplication.timeSinceStartup < ReadyAt
                 || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling
                 || EditorApplication.isUpdating) return;
             File.Delete(Request);
-            Configure();
+            busy = true;
+            try { SetupAll(); }
+            finally { busy = false; }
         }
 
-        [MenuItem("Tools/HXIME/Configure Japanese and Korean Dictionaries")]
-        public static void ConfigureWithConfirmation()
+        // 每个语言各自加载并建立索引，然后逐语言报告状态与一次查询冒烟测试。
+        public static void SetupAll()
         {
-            if (EditorApplication.isPlayingOrWillChangePlaymode)
-                throw new InvalidOperationException("Exit Play mode before configuring dictionaries.");
-            if (!EditorUtility.DisplayDialog("HXIME Japanese / Korean dictionaries",
-                "This enables the Japanese and Korean dictionaries: the prefab (and the scene instances loaded "
-                + "in the editor) get their Japanese/Korean dictionaries created or reconnected, and the "
-                + "\"Enable Japanese\" / \"Enable Korean\" switches on HXIMEUI are turned on.\n\nContinue?",
-                "Enable", "Cancel")) return;
-            Configure();
+            foreach (string source in HXIMELookupSetup.AllSources)
+            {
+                HXIMELookupSetup.LoadSource(source);
+                HXIMELookupSetup.RebuildSource(source);
+            }
+            SetLanguageSwitch("Japanese", true);
+            SetLanguageSwitch("Korean", true);
+            File.WriteAllText(ReportPath, Verify());
+            string[] sceneErrors = HXIMELookupSetup.CollectErrors();
+            File.AppendAllText(ReportPath, sceneErrors.Length == 0
+                ? "\nScene validation: PASS (Play mode and world builds are allowed)\n"
+                : "\nScene validation: FAIL (Play mode is cancelled, world builds fail)\n"
+                  + string.Join("\n", sceneErrors) + "\n");
+            Debug.Log("HXIME dictionary setup finished:\n" + File.ReadAllText(ReportPath));
         }
 
-        // Also called by the Temp/HXIME-language-setup.request step, so it never shows a dialog.
-        public static void Configure()
+        // 逐语言验证：词条与索引状态 + 该语言的一次真实查询。
+        // 预制件内容只在内存里烘焙，不写回文件。
+        public static string Verify()
         {
-            var report = new Report();
+            var report = new StringBuilder();
+            GameObject prefab = null;
             try
             {
-                if (EditorApplication.isPlayingOrWillChangePlaymode)
-                    throw new InvalidOperationException("Exit Play mode before configuring dictionaries.");
-                string prefabPath = Root + "/HXIME_Pinyin.prefab";
-                // Validate the complete input before modifying any prefab or scene.
-                string[][] ja = ReadRows(Root + "/Dicts/japanese_mozc_common.dict.tsv.txt");
-                string[][] ko = ReadRows(Root + "/Dicts/korean_nikl_common.dict.tsv.txt");
-                GameObject prefab = PrefabUtility.LoadPrefabContents(prefabPath);
-                try
+                prefab = PrefabUtility.LoadPrefabContents(Root + "/HXIME_Pinyin.prefab");
+                PinyinEngine engine = prefab.GetComponentInChildren<PinyinEngine>(true);
+                foreach (PinyinDict dictionary in prefab.GetComponentsInChildren<PinyinDict>(true))
                 {
-                    foreach (PinyinEngine engine in prefab.GetComponentsInChildren<PinyinEngine>(true))
-                        ConfigureEngine(engine, ja, ko, false, report);
-                    foreach (HXIMEUI ui in prefab.GetComponentsInChildren<HXIMEUI>(true))
-                        EnableLanguageToggles(ui);
-                    PrefabUtility.SaveAsPrefabAsset(prefab, prefabPath);
-                }
-                finally
-                {
-                    // The SDK queues component setup callbacks using delayCall.
-                    // Unload after those callbacks, so they never touch destroyed behaviours.
-                    EditorApplication.delayCall += () =>
+                    string error = PinyinLookupBuilder.Validate(dictionary);
+                    report.AppendLine((error == null ? "PASS " : "FAIL ")
+                        + PinyinLookupBuilder.LanguageName(dictionary) + " (" + dictionary.name + "): entries="
+                        + PinyinLookupBuilder.Count(dictionary).ToString("N0") + ", index="
+                        + (error == null ? "built" : "missing") + (error == null ? "" : " — " + error));
+                    if (error == null)
                     {
-                        if (prefab != null) PrefabUtility.UnloadPrefabContents(prefab);
-                    };
-                }
-
-                // Also repair instances with an explicit empty-array override, and unpacked instances.
-                foreach (PinyinEngine engine in UnityEngine.Object.FindObjectsOfType<PinyinEngine>(true))
-                {
-                    if (EditorUtility.IsPersistent(engine) || !engine.gameObject.scene.IsValid()
-                        || !engine.gameObject.scene.isLoaded || EditorSceneManager.IsPreviewScene(engine.gameObject.scene)) continue;
-                    ConfigureEngine(engine, ja, ko, true, report);
-                    EditorSceneManager.MarkSceneDirty(engine.gameObject.scene);
-                }
-                AssetDatabase.SaveAssetIfDirty(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
-
-                // The confirmation dialog promises to enable both languages, so open the switches
-                // on scene instances as well; connected dictionaries alone would stay disabled.
-                foreach (HXIMEUI ui in UnityEngine.Object.FindObjectsOfType<HXIMEUI>(true))
-                {
-                    if (EditorUtility.IsPersistent(ui) || !ui.gameObject.scene.IsValid()
-                        || !ui.gameObject.scene.isLoaded || EditorSceneManager.IsPreviewScene(ui.gameObject.scene)) continue;
-                    EnableLanguageToggles(ui);
-                    PrefabUtility.RecordPrefabInstancePropertyModifications(ui);
-                    EditorUtility.SetDirty(ui);
-                    EditorSceneManager.MarkSceneDirty(ui.gameObject.scene);
-                }
-                report.success = true;
-                Debug.Log("HXIME: Japanese/Korean dictionaries configured. Save the scene to keep instance overrides.");
-            }
-            catch (Exception exception)
-            {
-                report.error = exception.ToString();
-                Debug.LogException(exception);
-            }
-            Directory.CreateDirectory("Temp");
-            File.WriteAllText(ReportPath, JsonUtility.ToJson(report, true));
-        }
-
-        // The confirmation dialog promises to enable both languages, so open the switches as well:
-        // a connected dictionary with the switch off would still be skipped at runtime.
-        private static void EnableLanguageToggles(HXIMEUI ui)
-        {
-            typeof(HXIMEUI).GetField("enableJapanese", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, true);
-            typeof(HXIMEUI).GetField("enableKorean", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, true);
-            UdonSharpEditorUtility.CopyProxyToUdon(ui);
-        }
-
-        private static string[][] ReadRows(string path)
-        {
-            var result = new List<string[]>();
-            foreach (string line in File.ReadAllLines(path, System.Text.Encoding.UTF8))
-            {
-                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
-                string[] columns = line.Split('\t');
-                if (columns.Length != 3 || string.IsNullOrWhiteSpace(columns[0])
-                    || string.IsNullOrWhiteSpace(columns[1]) || !int.TryParse(columns[2], out int weight) || weight < 0)
-                    throw new FormatException("Invalid dictionary row in " + path);
-                result.Add(columns);
-            }
-            if (result.Count == 0) throw new FormatException("Empty dictionary: " + path);
-            return result.ToArray();
-        }
-
-        private static PinyinDict EnsureDictionary(PinyinEngine engine, string name, string label, string[][] rows, bool undo)
-        {
-            if (engine.additionalDicts != null)
-                foreach (PinyinDict existing in engine.additionalDicts)
-                    if (existing != null && existing.languageLabel == label && existing.entries != null
-                        && existing.entries.Length > 0)
-                    {
-                        if (undo) Undo.RecordObject(existing, "Rebuild HXIME lookup index");
-                        PinyinLookupBuilder.Build(existing);
-                        UdonSharpEditorUtility.CopyProxyToUdon(existing);
-                        EditorUtility.SetDirty(existing);
-                        if (undo) PrefabUtility.RecordPrefabInstancePropertyModifications(existing);
-                        return existing;
+                        PinyinLookupBuilder.BakeRuntime(dictionary);
+                        UdonSharpEditorUtility.CopyProxyToUdon(dictionary);
                     }
-            Transform child = engine.transform.Find(name);
-            if (child == null)
-            {
-                var obj = new GameObject(name);
-                obj.transform.SetParent(engine.transform, false);
-                if (undo) Undo.RegisterCreatedObjectUndo(obj, "Add HXIME language dictionary");
-                child = obj.transform;
+                }
+                foreach (var probe in new[]
+                {
+                    new { Mode = 1, Input = "nihao", Language = "Chinese" },
+                    new { Mode = 2, Input = "nihongo", Language = "Japanese" },
+                    new { Mode = 3, Input = "hangugeo", Language = "Korean" },
+                })
+                {
+                    string[] candidates;
+                    try
+                    {
+                        // 中文走 Match()（MatchLanguage 只服务 additionalDicts 里的日/韩）。
+                        candidates = probe.Mode == 1
+                            ? engine.Match(probe.Input, 10)
+                            : engine.MatchLanguage(probe.Mode, probe.Input, 10);
+                    }
+                    catch (Exception error)
+                    {
+                        report.AppendLine("FAIL " + probe.Language + " probe '" + probe.Input + "': " + error.Message);
+                        continue;
+                    }
+                    report.AppendLine((candidates.Length > 0 ? "PASS " : "FAIL ") + probe.Language + " probe '"
+                        + probe.Input + "': " + (candidates.Length > 0 ? string.Join(", ", candidates) : "<no candidates>"));
+                }
             }
-            PinyinDict dictionary = child.GetComponent<PinyinDict>();
-            if (dictionary == null) dictionary = child.gameObject.AddUdonSharpComponent<PinyinDict>();
-            if (undo) Undo.RecordObject(dictionary, "Configure HXIME dictionary");
-            dictionary.languageLabel = label;
-            dictionary.entries = new string[rows.Length];
-            dictionary.pinyins = new string[rows.Length];
-            dictionary.weights = new int[rows.Length];
-            dictionary.indices = new int[rows.Length];
-            for (int i = 0; i < rows.Length; i++)
+            catch (Exception error)
             {
-                dictionary.entries[i] = rows[i][0];
-                dictionary.pinyins[i] = rows[i][1];
-                dictionary.weights[i] = int.Parse(rows[i][2]);
-                dictionary.indices[i] = i;
+                report.AppendLine("FAIL " + error);
             }
-            PinyinLookupBuilder.Build(dictionary);
-            UdonSharpEditorUtility.CopyProxyToUdon(dictionary);
-            EditorUtility.SetDirty(dictionary);
-            if (undo) PrefabUtility.RecordPrefabInstancePropertyModifications(dictionary);
-            return dictionary;
+            finally
+            {
+                // 只卸载内存里的副本，绝不保存：预制件保持“空词库”的出厂状态。
+                if (prefab != null) PrefabUtility.UnloadPrefabContents(prefab);
+            }
+            return report.ToString();
         }
 
-        private static void ConfigureEngine(PinyinEngine engine, string[][] ja, string[][] ko, bool undo, Report report)
+        // 打开/关闭某个语言按钮（Ja/Ko）。预制件与场景实例一起设置。
+        public static void SetLanguageSwitch(string language, bool value)
         {
-            PinyinDict japanese = EnsureDictionary(engine, "JapaneseDictionary", "Ja", ja, undo);
-            PinyinDict korean = EnsureDictionary(engine, "KoreanDictionary", "Ko", ko, undo);
-            var dictionaries = new List<PinyinDict>(engine.additionalDicts ?? new PinyinDict[0]);
-            if (!dictionaries.Contains(japanese)) dictionaries.Add(japanese);
-            if (!dictionaries.Contains(korean)) dictionaries.Add(korean);
-            if (undo) Undo.RecordObject(engine, "Enable HXIME languages");
-            engine.additionalDicts = dictionaries.ToArray();
-            UdonSharpEditorUtility.CopyProxyToUdon(engine);
-            EditorUtility.SetDirty(engine);
-            if (undo) PrefabUtility.RecordPrefabInstancePropertyModifications(engine);
-            int jaMode = dictionaries.IndexOf(japanese) + 2;
-            int koMode = dictionaries.IndexOf(korean) + 2;
-            if (Array.IndexOf(engine.MatchLanguage(jaMode, "nihongo", 30), "日本語") < 0
-                || Array.IndexOf(engine.MatchLanguage(koMode, "hangugeo", 30), "한국어") < 0)
-                throw new InvalidOperationException("Configured dictionary lookup failed.");
-            var labels = new List<string>();
-            int mode = 1;
-            for (int i = 0; i < dictionaries.Count + 2; i++)
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                labels.Add(engine.LanguageLabel(mode));
-                mode = engine.NextLanguage(mode);
+                Debug.LogError("HXIME: exit Play mode before changing language switches.");
+                return;
             }
-            report.configured.Add(engine.gameObject.scene.path + ": " + engine.name);
-            report.verified.Add(string.Join(" -> ", labels) + "; Ja=" + japanese.entries.Length + "; Ko=" + korean.entries.Length);
+            string field = language == "Japanese" ? "enableJapanese" : language == "Korean" ? "enableKorean" : null;
+            if (field == null) throw new ArgumentException("Unsupported language: " + language);
+            string prefabPath = Root + "/HXIME_Pinyin.prefab";
+            GameObject prefab = PrefabUtility.LoadPrefabContents(prefabPath);
+            try
+            {
+                foreach (HXIMEUI ui in prefab.GetComponentsInChildren<HXIMEUI>(true)) SetSwitch(ui, field, value);
+                PrefabUtility.SaveAsPrefabAsset(prefab, prefabPath);
+            }
+            finally
+            {
+                // The SDK queues component setup callbacks with delayCall; unload after those.
+                EditorApplication.delayCall += () =>
+                {
+                    if (prefab != null) PrefabUtility.UnloadPrefabContents(prefab);
+                };
+            }
+            foreach (HXIMEUI ui in UnityEngine.Object.FindObjectsOfType<HXIMEUI>(true))
+            {
+                if (EditorUtility.IsPersistent(ui) || !ui.gameObject.scene.IsValid()
+                    || !ui.gameObject.scene.isLoaded || EditorSceneManager.IsPreviewScene(ui.gameObject.scene)) continue;
+                SetSwitch(ui, field, value);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(ui);
+                EditorUtility.SetDirty(ui);
+                EditorSceneManager.MarkSceneDirty(ui.gameObject.scene);
+            }
+            AssetDatabase.SaveAssetIfDirty(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
+            Debug.Log("HXIME: " + language + " language button " + (value ? "enabled" : "disabled")
+                + ". Save open scenes to keep instance overrides.");
+        }
+
+        private static void SetSwitch(HXIMEUI ui, string field, bool value)
+        {
+            typeof(HXIMEUI).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, value);
+            UdonSharpEditorUtility.CopyProxyToUdon(ui);
+            EditorUtility.SetDirty(ui);
         }
     }
 }

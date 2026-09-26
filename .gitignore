@@ -72,3 +72,7 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
+# Python bytecode from Dicts/tools/build_dictionaries.py
+__pycache__/
+*.pyc
+

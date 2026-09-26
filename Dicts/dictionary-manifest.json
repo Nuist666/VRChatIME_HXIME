@@ -3,7 +3,7 @@
     "google/mozc": "13c98988247aa711d99db9e348ec2a597d14b5cd",
     "spellcheck-ko/korean-dict-nikl": "42c0d01889f34536e9cf94fe57f62bd2055b1bde"
   },
-  "generator": "build_dictionaries.py (已从仓库移除；生成规则见 SOURCES.md)",
+  "generator": "Dicts/tools/build_dictionaries.py",
   "sources": [
     {
       "file": "mozc-dictionary00.txt",

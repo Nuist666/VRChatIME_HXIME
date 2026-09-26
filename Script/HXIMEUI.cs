@@ -34,7 +34,9 @@ public class HXIMEUI : UdonSharpBehaviour
     private bool ulpb = true;
     private bool capsed = false;
     private bool shifted = false;
-    private int candidateLimits = 30;
+    [Header("候选词数量")]
+    [Tooltip("Maximum number of candidates across all pages. Each page shows 5 candidates. Values above 100 may increase input latency.")]
+    [SerializeField, Min(1)] private int candidateLimits = 50;
     private bool accurateMode = false;
     // pinyin initials
     private const string pinyinInitials = "bpmfdtnlgkhjqxzcsry";
@@ -219,7 +221,7 @@ public class HXIMEUI : UdonSharpBehaviour
         //Set split
         inputBarConstraint.enabled = !splitInputbarKeyboard;
         // Confirm statement
-        statementText.text = "HXIME v 0.9.5\n©HX2 xianglong90";
+        statementText.text = "HXIME v 0.9.6\n©HX2 xianglong90";
         // Load Skin Data
         skinTitle = new string[skinData.Length];
         skinDescription = new string[skinData.Length];

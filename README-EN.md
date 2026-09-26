@@ -1,4 +1,4 @@
-### HXIME v0.9.5 Multilingual Input Keyboard for VRChat
+### HXIME v0.9.6 Multilingual Input Keyboard for VRChat
 
 Other languages: [中文](README.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)
 
@@ -12,11 +12,13 @@ An input method keyboard built for VRChat worlds. It started as a Chinese pinyin
 - Dictionaries are imported in the Unity editor and shipped with the world; no local files are read at runtime
 - Easy to install, custom skins supported; the language button cycles Chinese → JP → Ko → En
 
-`Dicts` ships dictionary files ready to import: a Mozc Japanese dictionary and the National Institute of Korean Language basic Korean dictionary, each in a compact and a full converted version. See [dictionary notes](Dicts/SOURCES.md) for file choices, sources and licenses.
+`Dicts` ships dictionary files ready to import: a Mozc Japanese dictionary and the National Institute of Korean Language basic Korean dictionary, each in a compact and a full converted version. See [dictionary notes](Dicts/SOURCES-EN.md) for file choices, sources and licenses.
 
-The current `HXIME_Pinyin.prefab` is wired to the compact Japanese and Korean dictionaries, so language switching works out of the box. For older scenes, run `Tools → HXIME → Configure Japanese and Korean Dictionaries`. Full setup, dictionary file format and feature scope are documented in [Multilingual Input](MULTILINGUAL-EN.md), also available in [中文](MULTILINGUAL.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md).
+The current `HXIME_Pinyin.prefab` no longer ships any dictionary entries or lookup index; its four dictionary components only mount their dictionary source files. Before use you must run "Load and apply dictionary" and then "Rebuild lookup index" for every language you want, as described in [Multilingual Input](MULTILINGUAL-EN.md). If either step is missing the component shows an English ERROR, entering Play mode is cancelled and the world build fails. Full setup, dictionary file format and feature scope are documented in [Multilingual Input](MULTILINGUAL-EN.md), also available in [中文](MULTILINGUAL.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md).
 
-Chinese, Japanese and Korean share sorted indexes and a Top-30 candidate lookup, while Chinese keeps reverse prefix and initials matching. Indexes are built in the editor when a dictionary is imported, when entering Play mode and when the world is built, so a key press only queries the relevant ranges. For old scenes or manually edited dictionaries, rebuild them with `Tools → HXIME → Rebuild All Dictionary Indexes` and save the scene. If a custom script changes dictionary weights at runtime, call the engine's `InvalidateMatchCache()`; codes and entry structure must be changed in the editor and followed by an index rebuild. See [Candidate Lookup Optimization](PERFORMANCE-EN.md) for the reasoning, index structure and verification scope, also available in [中文](PERFORMANCE.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md).
+Chinese, Japanese and Korean share sorted indexes and a Top-K candidate lookup, while Chinese keeps reverse prefix and initials matching. The index is generated when you click "Rebuild lookup index" in the editor and is written into the standalone binary dictionary asset under `Assets/HXIME_DictionaryData/`; when entering Play mode or building the world the editor then bakes that asset's entries and index into Udon, so a key press only queries the relevant ranges. For old scenes or manually edited dictionaries, rebuild them with `Tools → HXIME → Rebuild All Lookup Indexes` or the per-language `Rebuild Lookup Index` (the old `Tools → HXIME → Rebuild All Dictionary Indexes` menu no longer exists). If a custom script changes dictionary weights at runtime, call the engine's `InvalidateMatchCache()`; codes and entry structure must be changed in the editor and followed by loading and rebuilding the index again. See [Candidate Lookup Optimization](PERFORMANCE-EN.md) for the reasoning, index structure and verification scope, also available in [中文](PERFORMANCE.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md).
+
+In the `HXIMEUI` Inspector, set `Candidate Count` (`candidateLimits`) to customize the total candidate limit (default 50, minimum 1). Each page still shows 5 candidates; the actual count depends on matches. Values above 100 display an English performance warning in the Inspector but are still allowed. Higher limits can increase lookup, deduplication and sorting costs, especially with short inputs or large dictionaries; test input latency in the VRChat client.
 
 The original author is still learning git, so many thanks to everyone who sends pull requests.
 
@@ -31,7 +33,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - The first skin is used by default. You can reorder the skins to change the default one.
 - (Note that each skin description must match its image one to one. Skins you do not like can simply be removed.)
 - In `HXIMEUI` on `HXIME_Pinyin`, select your target input field. Bind a **dedicated output field**, never the IME's own pinyin composition field.
-- For multilingual input, configure the extra dictionaries as described in [Multilingual Input](MULTILINGUAL-EN.md); the current prefab already has them set up.
+- Before use, follow [Multilingual Input](MULTILINGUAL-EN.md) and run "Load and apply dictionary" followed by "Rebuild lookup index" for every language you want; the prefab itself contains no entries and no index.
 - Done!
 
 # Q&A
@@ -58,7 +60,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - A: Theoretically unlimited. Players currently have slots for the first 9 skins only; call the public method `SetSkin(index)` on the object holding the `HXIMEUI` script to use the 10th skin and beyond.
 - Q: How do I import my own dictionary?
 - A: Chinese dictionaries live in the simplified and traditional slots of `PinyinEngine`; other languages live in the `Additional Dicts` array, where each entry is a child object with a `PinyinDict` component, and its "language button label" decides the button text.
-- Use "Browse..." and "Load and apply dictionary" to import a UTF-8 text dictionary in the format `word<TAB>code<TAB>weight` (weight optional, default 0). Codes for extra languages are romanized and case insensitive.
+- Click "Load and apply dictionary" in that language's `PinyinDict` inspector to apply a UTF-8 text dictionary, then click "Rebuild lookup index"; the entries and the index are written only into the standalone binary asset under `Assets/HXIME_DictionaryData/`, and neither the prefab nor the scene is changed. The format is `word<TAB>code<TAB>weight` (weight optional, default 0). Codes for extra languages are romanized and case insensitive.
 - As you may have noticed, this is the RIME dictionary format. Standard RIME dictionaries with a `---` / `...` header can be imported directly; dictionaries with custom `columns` / `import_tables` must be expanded into the three columns above. See [Multilingual Input](MULTILINGUAL-EN.md).
 - Q: What are the key bindings in extra languages?
 - A: Space picks the first candidate on the page; the number keys 1–5 pick a candidate on the page; with no candidate, Space or Enter commits the raw code; Tab clears the composition; Backspace deletes one code character; switching language commits the unselected raw code first.
@@ -73,4 +75,4 @@ https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - Traditional Chinese Dictionary: RIME luna-pinyin https://github.com/rime/rime-luna-pinyin
 - Japanese Dictionary: Google Mozc https://github.com/google/mozc (BSD 3-Clause; the dictionary carries additional notices)
 - Korean Dictionary: National Institute of Korean Language, Korean Basic Dictionary https://krdict.korean.go.kr/ (CC BY-SA 2.0 KR)
-- Sources, conversion rules and full license texts: [Dicts/SOURCES.md](Dicts/SOURCES.md)
+- Sources, conversion rules and full license texts: [Dicts/SOURCES-EN.md](Dicts/SOURCES-EN.md)

@@ -1,4 +1,4 @@
-### HXIME v0.9.5 多语言输入法+键盘 VRChat 世界用多语言输入法 Multilingual Input Keyboard
+### HXIME v0.9.6 多语言输入法+键盘 VRChat 世界用多语言输入法 Multilingual Input Keyboard
 
 其他语言：[English](README-EN.md) ｜ [日本語](README-JP.md) ｜ [한국어](README-KO.md)
 
@@ -14,9 +14,11 @@
 
 `Dicts` 中已提供可直接导入的 Mozc 日语词库与国立国语院基础韩语词库，包含精简版本和完整转换版本。文件选择、数据来源及许可证见[词库说明](Dicts/SOURCES.md)。
 
-新版 `HXIME_Pinyin.prefab` 默认连接日韩精简词库，开箱即可切换语言；旧场景可用菜单 `Tools → HXIME → Configure Japanese and Korean Dictionaries` 补齐连接。完整配置方法、词库文件格式与功能范围见[多语言使用说明](MULTILINGUAL.md)，各语言版本见 [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md)。
+新版 `HXIME_Pinyin.prefab` 不再内置任何词库词条与查询索引，四个词库组件只挂接各自的词库源文件；使用前必须按[多语言使用说明](MULTILINGUAL.md)为每个想用的语言依次执行「加载并应用字典」与「重建查询索引」。缺少任一步时，对应组件会显示英文 ERROR，进入 Play 模式会被取消，构建世界也会失败。完整配置方法、词库文件格式与功能范围见[多语言使用说明](MULTILINGUAL.md)，各语言版本见 [English](MULTILINGUAL-EN.md) ｜ [日本語](MULTILINGUAL-JP.md) ｜ [한국어](MULTILINGUAL-KO.md)。
 
-中、日、韩共用排序索引与 Top-30 候选查询，中文另外保留反向前缀和简拼匹配。词库导入、进入 Play 模式和构建世界时会在编辑器预建索引，玩家按键时只查询相关区间。旧场景或手动修改的词库也可用 `Tools → HXIME → Rebuild All Dictionary Indexes` 重建，并保存场景。若自定义脚本在运行时修改词库权重，需调用引擎的 `InvalidateMatchCache()`；编码和词条结构应在编辑器修改后重建索引。改动原因、索引结构与验证范围见[候选查询优化说明](PERFORMANCE.md)，另有 [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md)。
+中、日、韩共用排序索引与 Top-K 候选查询，中文另外保留反向前缀和简拼匹配。索引在编辑器中点「重建查询索引」时生成，写入 `Assets/HXIME_DictionaryData/` 下的独立二进制词库资产；进入 Play 模式和构建世界时，编辑器再把资产中的词条与索引烘焙进 Udon，玩家按键时只查询相关区间。旧场景或手动修改的词库也可用 `Tools → HXIME → Rebuild All Lookup Indexes` 或各语言的 `Rebuild Lookup Index` 重建（旧的 `Tools → HXIME → Rebuild All Dictionary Indexes` 菜单已不存在）。若自定义脚本在运行时修改词库权重，需调用引擎的 `InvalidateMatchCache()`；编码和词条结构应在编辑器修改后重新加载并重建索引。改动原因、索引结构与验证范围见[候选查询优化说明](PERFORMANCE.md)，另有 [English](PERFORMANCE-EN.md) ｜ [日本語](PERFORMANCE-JP.md) ｜ [한국어](PERFORMANCE-KO.md)。
+
+在 `HXIMEUI` 的 Inspector 中，通过 `Candidate Count`（`candidateLimits`）设置候选词总数上限，默认 50，最小 1；每页仍显示 5 个，实际数量取决于匹配结果。超过 100 时 Inspector 会显示英文性能警告，但不会限制该值。较高上限可能增加查询、去重和排序开销，尤其是短输入或大词库，请在 VRChat 客户端实测输入延迟。
 
 作者还不会用git，所以非常感谢帮忙提交PR的大家。
 
@@ -31,7 +33,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - 默认会使用第一个皮肤，你可以调整皮肤的顺序，实现更换默认皮肤。
 - （注意，皮肤描述和图片必须一一对应哦。当然，觉得有些不太合适的皮肤可以移除）
 - 在 `HXIME_Pinyin` 的 `HXIMEUI` 里面，目标输入框那地方选择你的目标输入框。注意要绑定**独立的输出框**，不要绑定输入法自身的拼音预编辑框。
-- 需要多语言输入时，按[多语言使用说明](MULTILINGUAL.md)配置扩展词库；新版预制件已默认配置好。
+- 使用前请按[多语言使用说明](MULTILINGUAL.md)为每个想用的语言依次执行「加载并应用字典」与「重建查询索引」；预制件本身不含词条与索引。
 - 完成！
 
 # Q&A
@@ -58,7 +60,7 @@ Project Link: https://github.com/xianglong90II/VRChatChineseIME_HXIME
 - A：理论上基本无限。但是玩家目前只有前 9 个皮肤有槽位可以选。当然，可以从装有 `HXIMEUI` 这个脚本的物体上调用 `SetSkin(索引)` 这个公开方法来设置第 10 套及后面的皮肤。
 - Q: 我想要导入自己的字词库怎么办？
 - A: 中文词库在 `PinyinEngine` 的简体、繁体词库数组中；其他语言在 `Additional Dicts` 数组里，每一项是一个带 `PinyinDict` 组件的子物体，用「语言按钮名称」决定语言按钮显示的文字。
-- 用「浏览文件」和「加载并应用字典」导入 UTF-8 文本字典即可，格式为「词条 tab 编码 tab 权重（可省略，默认为 0）」。扩展语言的编码是罗马字，编码忽略大小写。
+- 在该语言的 `PinyinDict` 检查器点「加载并应用字典」应用 UTF-8 文本字典，再点「重建查询索引」；词条与索引只写入 `Assets/HXIME_DictionaryData/` 下的独立二进制资产，预制件与场景都不会被改动。格式为「词条 tab 编码 tab 权重（可省略，默认为 0）」。扩展语言的编码是罗马字，编码忽略大小写。
 - 您可能已经发现了，这与 RIME 字典的格式一致！带 `---` / `...` 文件头的标准 RIME 字典也可以直接导入；带自定义 `columns` / `import_tables` 的字典需要先展开成上述三列。详见[多语言使用说明](MULTILINGUAL.md)。
 - Q: 扩展语言有没有快捷键说明？
 - A: 空格选择当前页首候选；数字 1–5 选择当前页候选；没有候选时空格或回车提交原始编码；Tab 清空预编辑；退格删除一个编码字符；切换语言会先提交未选中的原始编码。
